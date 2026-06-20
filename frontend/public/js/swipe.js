@@ -96,6 +96,3 @@ function triggerSwipeReply(row) {
 function vibratePhone() {
   if ('vibrate' in navigator) navigator.vibrate(30);
 }
-
-// Re-attach swipe on new messages added dynamically
-const _origAppendPriv = window.appendPrivateMsg;

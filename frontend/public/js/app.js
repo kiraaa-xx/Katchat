@@ -58,7 +58,7 @@ async function enterApp() {
   document.getElementById('app').classList.remove('hidden');
 
   if (!state.user.intro_seen) {
-    api.markIntroSeen().catch(() => {});
+    api.markIntroSeen().catch(err => console.warn('markIntroSeen failed:', err));
     state.user.intro_seen = true;
   }
 

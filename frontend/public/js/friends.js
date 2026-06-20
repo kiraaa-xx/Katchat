@@ -74,7 +74,7 @@ function makeFriendItem(friend) {
       <div class="fi-name">${esc(friend.display_name)}</div>
       <div class="fi-status ${friend.is_online ? 'online' : ''}">${friend.is_online ? '● Online' : fmtLastSeen(friend.last_seen)}</div>
     </div>
-    <button class="icon-btn" onclick="event.stopPropagation();openProfile(${JSON.stringify(friend).replace(/"/g,'&quot;')})" title="View Profile"><i class="fa fa-ellipsis-vertical"></i></button>`;
+    <button class="icon-btn" onclick="event.stopPropagation();openProfile(${safeJsonForOnclick(friend)})" title="View Profile"><i class="fa fa-ellipsis-vertical"></i></button>`;
   return item;
 }
 

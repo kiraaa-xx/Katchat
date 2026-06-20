@@ -6,6 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const supabase = require('../supabase');
 const { auth, adminOnly, ownerOnly } = require('../middleware/auth');
+const { validateMaxLength } = require('../error-handler');
+const { imageFileFilter } = require('../utils');
 
 const pronounMap = { male:'he/him', female:'she/her', 'non-binary':'they/them', 'prefer-not-to-say':'they/them' };
 const colorMap = { male:'#4A90D9', female:'#D94A8C', 'non-binary':'#9B4AD9', 'prefer-not-to-say':'#4AD9A0' };
@@ -18,9 +20,13 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => cb(null, `avatar_${req.user.id}_${Date.now()}${path.extname(file.originalname)}`)
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: imageFileFilter
+});
 
-const safe = (u) => { if (!u) return null; const { email, ...r } = u; return r; };
+const safe = (u) => { if (!u) return null; const { email, password, banned_by, ban_reason, temp_ban_until, sage_history, ...r } = u; return r; };
 
 router.get('/search', auth, async (req, res) => {
   try {
@@ -88,6 +94,10 @@ router.delete('/friend/:userId', auth, async (req, res) => {
 router.put('/profile', auth, async (req, res) => {
   try {
     const { displayName, gender, theme } = req.body;
+    if (displayName && /[<>&"']/.test(displayName))
+      return res.status(400).json({ error: 'Display name contains invalid characters' });
+    const lenErr = validateMaxLength({ displayName, gender, theme }, { displayName: 50, gender: 20, theme: 20 });
+    if (lenErr) return res.status(400).json({ error: lenErr });
     const updates = { updated_at: new Date().toISOString() };
     if (displayName) updates.display_name = displayName;
     if (theme) updates.theme = theme;
@@ -151,7 +161,7 @@ router.put('/ban/:userId', auth, adminOnly, async (req, res) => {
 
 router.put('/unban/:userId', auth, adminOnly, async (req, res) => {
   try {
-    await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null }).eq('id', req.params.userId);
+    await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null, temp_ban_until: null }).eq('id', req.params.userId);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

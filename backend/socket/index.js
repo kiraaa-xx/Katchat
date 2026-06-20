@@ -46,8 +46,17 @@ module.exports = (io) => {
 
     socket.on('send_global_message', async ({ content, replyTo, mentions }) => {
       try {
-        const { data: freshUser } = await supabase.from('users').select('is_banned_from_global,ban_reason,role').eq('id', uid).single();
-        if (freshUser?.is_banned_from_global) return socket.emit('banned_from_global', { reason: freshUser.ban_reason || null });
+        const { data: freshUser } = await supabase.from('users').select('is_banned_from_global,ban_reason,role,temp_ban_until').eq('id', uid).single();
+        if (freshUser?.is_banned_from_global) {
+          if (freshUser.temp_ban_until && new Date(freshUser.temp_ban_until) < new Date()) {
+            await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null, temp_ban_until: null }).eq('id', uid);
+            const unbannedSocket = onlineUsers.get(uid);
+            if (unbannedSocket) io.to(unbannedSocket).emit('unbanned_from_global');
+            io.to('global').emit('new_global_message', { id: `sys_${Date.now()}`, content: `✅ @${socket.user.username}'s temporary ban has expired`, type: 'global', isSystem: true, created_at: new Date() });
+          } else {
+            return socket.emit('banned_from_global', { reason: freshUser.ban_reason || null });
+          }
+        }
         const userRole = freshUser?.role || socket.user.role;
         const { data: roleData } = await supabase.from('roles').select('permissions').eq('name', userRole).single();
         if (roleData?.permissions?.canUseCommands && content.startsWith('/')) { await handleCommand(socket, io, content, onlineUsers); return; }
@@ -112,17 +121,14 @@ async function handleCommand(socket, io, content, onlineUsers) {
   if (cmd === '/ban' || cmd === '/tban') {
     if (socket.user.role === 'admin' && ['admin','owner'].includes(targetUser.role)) return socket.emit('error', { message: 'Cannot ban admin or owner' });
     const hours = cmd === '/tban' ? parseFloat(hoursArg) || 1 : null;
-    await supabase.from('users').update({ is_banned_from_global: true, banned_by: socket.user.id, ban_reason: reason }).eq('id', targetUser.id);
+    const tempBanUntil = hours ? new Date(Date.now() + hours * 3600000).toISOString() : null;
+    await supabase.from('users').update({ is_banned_from_global: true, banned_by: socket.user.id, ban_reason: reason, temp_ban_until: tempBanUntil }).eq('id', targetUser.id);
     const bannedSocket = onlineUsers.get(targetUser.id);
     if (bannedSocket) io.to(bannedSocket).emit('banned_from_global', { reason });
     const sysMsg = `⚠️ ${socket.user.display_name} has ${hours ? `temp-banned for ${hours}h` : 'banned'} @${targetUser.username} from global chat${reason ? ` (${reason})` : ''}`;
     io.to('global').emit('new_global_message', { id: `sys_${Date.now()}`, content: sysMsg, type: 'global', isSystem: true, created_at: new Date() });
-    if (hours) setTimeout(async () => {
-      await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null }).eq('id', targetUser.id);
-      io.to('global').emit('new_global_message', { id: `sys_${Date.now()}`, content: `✅ @${targetUser.username}'s temporary ban has expired`, type: 'global', isSystem: true, created_at: new Date() });
-    }, hours * 3600000);
   } else if (cmd === '/unban' || cmd === '/tunban') {
-    await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null }).eq('id', targetUser.id);
+    await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null, temp_ban_until: null }).eq('id', targetUser.id);
     const unbannedSocket = onlineUsers.get(targetUser.id);
     if (unbannedSocket) io.to(unbannedSocket).emit('unbanned_from_global');
     io.to('global').emit('new_global_message', { id: `sys_${Date.now()}`, content: `✅ ${socket.user.display_name} has unbanned @${targetUser.username}`, type: 'global', isSystem: true, created_at: new Date() });

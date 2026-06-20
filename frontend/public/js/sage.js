@@ -50,7 +50,7 @@ function renderSageChatList() {
 
   list.innerHTML = sorted.map(c => `
     <div class="sage-chat-item ${c.id === activeSageChatId ? 'active' : ''}" 
-         onclick="loadSageChat(${JSON.stringify(c).replace(/"/g,'&quot;')})">
+         onclick="loadSageChat(${safeJsonForOnclick(c)})">
       <div class="sci-title">${esc(c.title || 'Chat')}</div>
       <div class="sci-preview">${esc(c.preview || '...')}</div>
       <button class="sci-del" onclick="event.stopPropagation();deleteSageChat('${c.id}')">
@@ -96,13 +96,14 @@ function makeSageMsgEl(m, index) {
   // Avatar
   let avHtml = '';
   if (m.role === 'user') {
-    // User avatar
     const u = state.user;
     if (u) {
+      const bg = esc(u.profile_color || u.profileColor || '#555');
       if (u.profile_picture || u.profilePicture) {
-        avHtml = `<div class="av xs" style="background:${u.profile_color || u.profileColor || '#555'}"><img src="${u.profile_picture || u.profilePicture}" onerror="this.remove();this.parentNode.textContent='${(u.display_name||'?')[0].toUpperCase()}'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>`;
+        const src = esc(u.profile_picture || u.profilePicture);
+        avHtml = `<div class="av xs" style="background:${bg}"><img src="${src}" onerror="this.remove();this.parentNode.textContent='${initials(u)}'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>`;
       } else {
-        avHtml = `<div class="av xs" style="background:${u.profile_color || '#555'}">${(u.display_name || '?')[0].toUpperCase()}</div>`;
+        avHtml = `<div class="av xs" style="background:${bg}">${initials(u)}</div>`;
       }
     }
   } else {
@@ -111,7 +112,7 @@ function makeSageMsgEl(m, index) {
 
   // Image inside bubble (if message has an attached image)
   const imageHtml = m.image 
-    ? `<div class="sage-msg-img-wrap"><img src="${m.image}" class="sage-msg-img" onclick="openImgViewer('${m.image.replace(/'/g, "\\'")}')" alt="Attached image" loading="lazy"></div>` 
+    ? `<div class="sage-msg-img-wrap"><img src="${esc(m.image)}" class="sage-msg-img" onclick="openImgViewer('${esc(m.image)}')" alt="Attached image" loading="lazy"></div>` 
     : '';
 
   // Action buttons — shown on hover for all messages, but retry only for assistant

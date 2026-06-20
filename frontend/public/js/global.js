@@ -116,7 +116,7 @@ function makeGlobalMsgEl(msg) {
         <span class="msg-time">${fmtTime(msg.created_at)}</span>
         <div class="msg-actions">
           <button class="mac-btn" onclick="setGlobalReply('${msg.id}','${esc(sender.display_name || '')}','${esc((msg.content||'').substring(0,60))}')" title="Reply"><i class="fa fa-reply"></i></button>
-          ${!isOwn ? `<button class="mac-btn" onclick="openProfile(${JSON.stringify(sender).replace(/"/g,'&quot;')})" title="Profile"><i class="fa fa-user"></i></button>` : ''}
+          ${!isOwn ? `<button class="mac-btn" onclick="openProfile(${safeJsonForOnclick(sender)})" title="Profile"><i class="fa fa-user"></i></button>` : ''}
           ${canDelete ? `<button class="mac-btn" onclick="deleteGlobalMsg('${msg.id}')" title="Delete" style="color:var(--danger)"><i class="fa fa-trash"></i></button>` : ''}
         </div>
       </div>

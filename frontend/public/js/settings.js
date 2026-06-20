@@ -46,7 +46,7 @@ function toggleTheme() {
   const curr = document.documentElement.getAttribute('data-theme');
   const next = curr === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
-  if (state.user) { state.user.theme = next; api.updateProfile({ theme: next }).catch(() => {}); }
+  if (state.user) { state.user.theme = next; api.updateProfile({ theme: next }).catch(err => console.warn('theme update failed:', err)); }
 }
 
 async function handleAvatarUpload(input) {

@@ -41,7 +41,6 @@ const api = {
   deleteRole: (name) => req('DELETE', `/roles/${name}`),
   getPrivateMsgs: (id, page = 1) => req('GET', `/messages/private/${id}?page=${page}`),
   getGlobalMsgs: () => req('GET', '/messages/global'),
-  sendPrivateMsgHttp: (id, fd) => req('POST', `/messages/private/${id}`, fd, true),
   deleteMsg: (id) => req('DELETE', `/messages/${id}`),
   getUnreadCounts: () => req('GET', '/messages/unread-counts'),
   getAnnouncements: () => req('GET', '/announcements'),

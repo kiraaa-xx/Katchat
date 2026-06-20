@@ -33,7 +33,7 @@ function makeAdminUserRow(u) {
   const canManage = isOwner || (isAdmin && !['admin','owner'].includes(u.role));
 
   // Build avatar — show default avatar instead of empty black circle
-  const av = makeAdminAvEl(u, 'md');
+  const av = makeAvEl(u, 'md');
 
   // Role selector — only owner can assign roles
   const roleOptions = isOwner && state.roles
@@ -72,30 +72,6 @@ function makeAdminUserRow(u) {
       ${!isSelf && isOwner ? `<button class="btn-xs secondary" onclick="resetUserPassword('${u.id}','${esc(u.display_name)}')"><i class="fa fa-key"></i> Reset Password</button>` : ''}
     </div>`;
   return row;
-}
-
-// Build a proper avatar element for admin panel (with default fallback)
-function makeAdminAvEl(u, size) {
-  const el = document.createElement('div');
-  el.className = `av ${size}`;
-  const bg = u.profile_color || '#4A90D9';
-  el.style.background = bg;
-
-  if (u.profile_picture) {
-    const img = document.createElement('img');
-    img.src = u.profile_picture;
-    img.alt = u.display_name || '';
-    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
-    img.onerror = () => {
-      img.remove();
-      el.textContent = (u.display_name || u.username || '?')[0].toUpperCase();
-    };
-    el.appendChild(img);
-  } else {
-    // Show initials as fallback — never black empty circle
-    el.textContent = (u.display_name || u.username || '?')[0].toUpperCase();
-  }
-  return el;
 }
 
 function openBanDialog(userId, displayName) {
@@ -343,7 +319,7 @@ async function loadAdminBans() {
     banned.forEach(u => {
       const row = document.createElement('div');
       row.className = 'admin-row admin-row-anim';
-      const av = makeAdminAvEl(u, 'md');
+      const av = makeAvEl(u, 'md');
       const bannedDate = u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A';
       row.innerHTML = `${av.outerHTML}
         <div class="ar-info">

@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const supabase = require('../supabase');
 const { auth, adminOnly } = require('../middleware/auth');
+const { validateMaxLength } = require('../error-handler');
+const { imageFileFilter } = require('../utils');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -14,7 +16,11 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => cb(null, `msg_${Date.now()}_${Math.random().toString(36).substr(2,6)}${path.extname(file.originalname)}`)
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFileFilter
+});
 
 const enrichMessages = async (messages) => {
   if (!messages?.length) return [];
@@ -49,9 +55,18 @@ router.get('/private/:userId', auth, async (req, res) => {
       .select('*').eq('conversation_id', convId).eq('deleted', false)
       .order('created_at', { ascending: false }).range((page-1)*limit, page*limit-1);
     const enriched = await enrichMessages((messages || []).reverse());
-    // Mark as read
-    await supabase.from('messages').update({ read_by: supabase.rpc ? undefined : [] })
-      .eq('conversation_id', convId).neq('sender_id', req.user.id);
+    // Mark as read — append current user to read_by array
+    try {
+      const { data: unread } = await supabase.from('messages')
+        .select('id,read_by').eq('conversation_id', convId).neq('sender_id', req.user.id);
+      for (const m of unread || []) {
+        const arr = m.read_by || [];
+        if (!arr.includes(req.user.id)) {
+          arr.push(req.user.id);
+          await supabase.from('messages').update({ read_by: arr }).eq('id', m.id);
+        }
+      }
+    } catch (_) { /* best-effort read tracking */ }
     res.json({ messages: enriched });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -75,6 +90,8 @@ router.post('/private/:userId', auth, upload.array('images', 5), async (req, res
     const convId = [req.user.id, req.params.userId].sort().join('_');
     const images = req.files ? req.files.map(f => `/uploads/messages/${f.filename}`) : [];
     if (!content && !images.length) return res.status(400).json({ error: 'Message cannot be empty' });
+    const lenErr = validateMaxLength({ content }, { content: 5000 });
+    if (lenErr) return res.status(400).json({ error: lenErr });
     
     // Check image upload limit
     if (images.length > 0) {

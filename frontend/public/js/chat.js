@@ -95,10 +95,10 @@ function makePrivMsgEl(msg) {
 
   const imagesHtml = msg.images?.length ? `
     <div class="msg-imgs count-${Math.min(msg.images.length, 3)}">
-      ${msg.images.map(s => `<img src="${s}" onclick="openImgViewer('${s}')" loading="lazy">`).join('')}
+      ${msg.images.map(s => `<img src="${esc(s)}" onclick="openImgViewer('${esc(s)}')" loading="lazy">`).join('')}
     </div>` : '';
 
-  const canDelete = isOwn || state.roles.find(r => r.name === state.user.role)?.permissions?.canDeleteMessages;
+  const canDelete = isOwn || state.roles.find(r => r.name === state.user?.role)?.permissions?.canDeleteMessages;
 
   row.innerHTML = `
     ${av.outerHTML}

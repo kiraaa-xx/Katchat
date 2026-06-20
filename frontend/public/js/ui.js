@@ -1,11 +1,13 @@
 // ── Toast ─────────────────────────────────────────────────────
 function showToast(msg, type = 'info') {
   const c = document.getElementById('toast-wrap');
+  if (!c) return;
   const t = document.createElement('div');
   t.className = `toast ${type}`;
+  t.setAttribute('role', 'status');
   const icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' };
   const colors = { success: 'var(--accent)', error: 'var(--danger)', info: 'var(--cyan)' };
-  t.innerHTML = `<i class="fa ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}"></i><span>${msg}</span>`;
+  t.innerHTML = `<i class="fa ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}" aria-hidden="true"></i><span>${msg}</span>`;
   c.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(16px)'; t.style.transition = '.3s'; setTimeout(() => t.remove(), 300); }, 3200);
 }
@@ -83,11 +85,16 @@ function fmtLastSeen(d) {
 function openModal(id) {
   document.getElementById('overlay').classList.remove('hidden');
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
+  const modal = document.getElementById(id);
+  modal.classList.remove('hidden');
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  const firstFocusable = modal.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (firstFocusable) setTimeout(() => firstFocusable.focus(), 100);
 }
 function closeModal() {
   document.getElementById('overlay').classList.add('hidden');
-  document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+  document.querySelectorAll('.modal').forEach(m => { m.classList.add('hidden'); m.removeAttribute('role'); m.removeAttribute('aria-modal'); });
 }
 function overlayClick(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
 
@@ -99,10 +106,19 @@ function showConfirm(title, msg, cb) {
   openModal('m-confirm');
 }
 
+// ── Safe JSON for onclick attributes ──────────────────────────
+function safeJsonForOnclick(obj) {
+  return JSON.stringify(obj).replace(/[&"']/g, function(c) {
+    if (c === '&') return '&amp;';
+    if (c === '"') return '&quot;';
+    return '&#x27;';
+  });
+}
+
 // ── Escape HTML ───────────────────────────────────────────────
 function esc(s) {
   if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
 }
 
 // ── Auto-resize textarea ──────────────────────────────────────
@@ -183,21 +199,6 @@ function switchTab(tab, btn) {
   document.getElementById('tab-friends').classList.toggle('hidden', tab !== 'friends');
 }
 
-// ── Admin tab ─────────────────────────────────────────────────
-// Note: authoritative adminTab is in admin.js; this is kept as fallback
-if (!window.__adminTab_defined__) {
-  window.__adminTab_defined__ = true;
-  window.adminTab = function adminTab(tab, btn) {
-    document.querySelectorAll('.admin-tabs .stab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    ['users','roles','bans','posts'].forEach(t => document.getElementById(`at-${t}`)?.classList.toggle('hidden', t !== tab));
-    if (tab === 'users') loadAdminUsers();
-    else if (tab === 'roles') loadAdminRoles();
-    else if (tab === 'bans') loadAdminBans();
-    else if (tab === 'posts') loadAdminPosts();
-  };
-}
-
 // ── Skeleton loader ───────────────────────────────────────────
 function skeletonRows(n = 5) {
   return Array(n).fill(0).map((_, i) => `
@@ -264,6 +265,7 @@ async function openProfile(user) {
 function filterChats(q) {
   const clearBtn = document.getElementById('clear-search');
   clearBtn.classList.toggle('hidden', !q);
+  clearBtn.setAttribute('aria-label', q ? 'Clear search' : '');
   document.querySelectorAll('.chat-item').forEach(el => {
     const name = el.querySelector('.ci-name')?.textContent.toLowerCase() || '';
     el.style.display = name.includes(q.toLowerCase()) ? '' : 'none';

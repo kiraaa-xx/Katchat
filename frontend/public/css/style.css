@@ -824,5 +824,28 @@ img{max-width:100%}
 @keyframes msgAppear { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 .msg-appear { animation: msgAppear .22s cubic-bezier(.34,1.2,.64,1) both; }
 
+/* ===== COUNT PULSE ===== */
+.count-pulse{animation:countPulse .6s ease}
+@keyframes countPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+
+/* ===== NOTIF BOUNCE ===== */
+.notif-bounce{animation:notifBounce .6s ease}
+@keyframes notifBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
 /* ===== ANN CARD AUTHOR LAYOUT ===== */
 .ann-card-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+
+/* ===== ANN IMAGE VIEWER ===== */
+.ann-img-viewer{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;backdrop-filter:blur(8px)}
+.ann-img-viewer-inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px}
+.ann-img-viewer-close{position:absolute;top:-40px;right:0;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:.2s}
+.ann-img-viewer-close:hover{background:rgba(255,255,255,.1)}
+.ann-img-viewer-img{max-width:90vw;max-height:75vh;object-fit:contain;border-radius:8px}
+.ann-img-viewer-actions{display:flex;gap:10px}
+.ann-img-viewer-link{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:13px;cursor:pointer;transition:.2s;text-decoration:none}
+.ann-img-viewer-link:hover{background:rgba(255,255,255,.15)}
+.ann-card-img-wrap{position:relative;cursor:pointer;overflow:hidden}
+.ann-card-img-wrap:hover .ann-img-overlay{opacity:1}
+.ann-img-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;opacity:0;transition:.25s;color:#fff;font-size:32px}
+.ann-author-av{width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.ann-author-av-fallback{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}

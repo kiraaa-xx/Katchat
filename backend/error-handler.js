@@ -88,6 +88,12 @@ const asyncHandler = (fn) => (req, res, next) => {
  * Main error handler middleware
  */
 const errorHandler = (err, req, res, next) => {
+  // Handle Multer errors (file size limits etc.)
+  if (err.name === 'MulterError') {
+    const messages = { LIMIT_FILE_SIZE: 'File too large', LIMIT_FILE_COUNT: 'Too many files', LIMIT_UNEXPECTED_FILE: 'Unexpected file field' };
+    return res.status(400).json({ success: false, error: { message: messages[err.code] || err.message, code: 'UPLOAD_ERROR', statusCode: 400, timestamp: new Date().toISOString() } });
+  }
+
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
   const code = err.code || 'INTERNAL_ERROR';
@@ -179,6 +185,20 @@ const validateUsername = (username) => {
       'INVALID_USERNAME'
     );
   }
+};
+
+/**
+ * Validate max length for text fields — returns error string or null
+ */
+const validateMaxLength = (obj, fields) => {
+  const defaults = { displayName: 50, username: 20, email: 254, password: 128, gender: 20, theme: 20, content: 5000, title: 200, role: 50 };
+  for (const [key, maxLen] of Object.entries(fields)) {
+    const limit = defaults[key] || maxLen;
+    if (obj[key] && obj[key].length > limit) {
+      return `${key} exceeds maximum length of ${limit} characters`;
+    }
+  }
+  return null;
 };
 
 // ===== SAFE OPERATIONS =====
@@ -318,6 +338,7 @@ module.exports = {
   validateEmail,
   validatePassword,
   validateUsername,
+  validateMaxLength,
   safeSupabaseQuery,
   safeVerifyToken,
   RateLimiter,

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const supabase = require('../supabase');
 const { auth, ownerOnly } = require('../middleware/auth');
+const { validateMaxLength } = require('../error-handler');
 
 const pronounMap = { male:'he/him', female:'she/her', 'non-binary':'they/them', 'prefer-not-to-say':'they/them' };
 const colorMap = { male:'#4A90D9', female:'#D94A8C', 'non-binary':'#9B4AD9', 'prefer-not-to-say':'#4AD9A0' };
@@ -21,7 +22,7 @@ const generateTempPassword = () => {
 };
 
 const safeUser = (u) => {
-  const { password, ...rest } = u;
+  const { password, email, banned_by, ban_reason, temp_ban_until, sage_history, ...rest } = u;
   return rest;
 };
 
@@ -30,6 +31,12 @@ router.post('/register', async (req, res) => {
     const { displayName, username, email, password, gender } = req.body;
     if (!displayName || !username || !email || !password || !gender)
       return res.status(400).json({ error: 'All fields are required' });
+
+    if (/[<>&"']/.test(displayName))
+      return res.status(400).json({ error: 'Display name contains invalid characters' });
+
+    const lenErr = validateMaxLength({ displayName, username, email, password, gender }, { displayName: 50, username: 20, email: 254, password: 128, gender: 20 });
+    if (lenErr) return res.status(400).json({ error: lenErr });
 
     const usernameClean = username.toLowerCase().trim();
     if (!/^[a-z0-9_]{3,20}$/.test(usernameClean))

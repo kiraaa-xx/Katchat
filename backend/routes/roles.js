@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
 const { auth, ownerOnly } = require('../middleware/auth');
+const { validateMaxLength } = require('../error-handler');
 
 // Get all roles
 router.get('/', auth, async (req, res) => {
@@ -16,6 +17,8 @@ router.post('/', auth, ownerOnly, async (req, res) => {
   try {
     const { name, color, icon, permissions } = req.body;
     if (!name || !color) return res.status(400).json({ error: 'Name and color required' });
+    const lenErr = validateMaxLength({ name }, { name: 50 });
+    if (lenErr) return res.status(400).json({ error: lenErr });
     const clean = name.toLowerCase().trim().replace(/\s+/g, '_');
     const { data, error } = await supabase.from('roles').insert({ name: clean, color, icon: icon || 'fa-solid fa-user', permissions: permissions || {} }).select().single();
     if (error) return res.status(400).json({ error: error.message });

@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const supabase = require('../supabase');
 const { auth, adminOnly } = require('../middleware/auth');
+const { validateMaxLength } = require('../error-handler');
+const { imageFileFilter } = require('../utils');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -14,7 +16,11 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => cb(null, `ann_${Date.now()}${path.extname(file.originalname)}`)
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFileFilter
+});
 
 const enrichAnnouncements = async (anns) => {
   if (!anns?.length) return [];
@@ -38,6 +44,8 @@ router.post('/', auth, adminOnly, upload.single('image'), async (req, res) => {
   try {
     const { title, content, pinned } = req.body;
     if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+    const lenErr = validateMaxLength({ title, content }, { title: 200, content: 5000 });
+    if (lenErr) return res.status(400).json({ error: lenErr });
     const image = req.file ? `/uploads/announcements/${req.file.filename}` : null;
     const { data } = await supabase.from('announcements').insert({ title, content, image, author_id: req.user.id, pinned: pinned === 'true' }).select().single();
     const enriched = await enrichAnnouncements([data]);
@@ -49,6 +57,8 @@ router.post('/', auth, adminOnly, upload.single('image'), async (req, res) => {
 router.put('/:id', auth, adminOnly, upload.single('image'), async (req, res) => {
   try {
     const { title, content, pinned } = req.body;
+    const lenErr = validateMaxLength({ title, content }, { title: 200, content: 5000 });
+    if (lenErr) return res.status(400).json({ error: lenErr });
     const updates = { updated_at: new Date().toISOString() };
     if (title) updates.title = title;
     if (content) updates.content = content;

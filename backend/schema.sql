@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_banned_from_global BOOLEAN DEFAULT false,
   ban_reason TEXT DEFAULT NULL,
   banned_by UUID REFERENCES users(id),
+  temp_ban_until TIMESTAMPTZ DEFAULT NULL,
   must_change_password BOOLEAN DEFAULT false,
   theme TEXT DEFAULT 'dark',
   intro_seen BOOLEAN DEFAULT false,
@@ -110,10 +111,19 @@ CREATE TABLE IF NOT EXISTS image_uploads (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_banned ON users(is_banned_from_global);
 CREATE INDEX IF NOT EXISTS idx_ann_comments_ann ON announcement_comments(announcement_id);
 CREATE INDEX IF NOT EXISTS idx_image_uploads_user_date ON image_uploads(user_id, upload_date);
+
+-- ── Migrations for existing deployments ───────────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS temp_ban_until TIMESTAMPTZ DEFAULT NULL;
+
+-- Case-insensitive unique index on email
+DROP INDEX IF EXISTS idx_users_email_lower;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));
 
 -- ── DISABLE RLS (service key bypasses anyway) ─────────────────
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;

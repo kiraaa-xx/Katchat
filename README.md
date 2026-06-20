@@ -1,116 +1,219 @@
-# KatChat 🐱 — Premium Real-Time Chat App v2.1
+# KATCHAT — Real-Time Chat with AI Assistant
 
-A modern full-stack real-time messaging platform with AI assistant Sage, global chat, private messaging, role management, announcements with comments, and a polished mobile-first UI.
+A full-stack real-time messaging platform with Sage AI, global chat, private messaging, role management, announcements with comments, and a mobile-first UI.
 
----
+## Tech Stack
 
-## ✨ Features at a Glance
+| Layer | Technology |
+|-------|-----------|
+| Backend | Node.js, Express, Socket.IO |
+| Database | Supabase (PostgreSQL) |
+| AI | Groq (primary, free) / Anthropic (fallback) |
+| Frontend | Vanilla JS SPA, CSS3, Font Awesome 6 |
+
+## Features
 
 | Feature | Details |
-|---|---|
-| 💬 Private Chat | Real-time, replies, image upload (5 max), swipe-to-reply |
-| 🌐 Global Chat | @mentions, owner glow effect, /commands with user autocomplete |
-| 👥 Friends | Search, requests, mutual friends, online status |
-| 📢 Announcements | Images, pinning, comments (banned users view-only) |
-| 🤖 Sage AI | Groq (free & fast), chat history (5 exchanges), image analysis |
-| 🏷️ Roles | Custom roles — name, color, Font Awesome icon, permissions |
-| 🛡️ Admin Panel | Ban with reason, unban, role assign, post management |
-| 👑 Owner | Glowing messages, crown badge, full control |
-| 📱 Mobile | Swipe-to-reply, responsive, PWA manifest |
-| 🎨 Themes | Dark/Light per user, persisted to DB |
-| 🔍 SEO | Meta, Open Graph, Twitter Card, JSON-LD |
+|---------|---------|
+| Private Chat | Real-time, replies, image upload (max 5), swipe-to-reply |
+| Global Chat | @mentions, owner glow effect, /commands with autocomplete |
+| Friends | Search, requests, mutual friends, online status |
+| Announcements | Images, pinning, comments (banned users view-only) |
+| Sage AI | Groq-powered, chat history (5 exchanges), image analysis |
+| Roles | Custom name, color, icon, permissions |
+| Admin Panel | Ban with reason, unban, role assign, post management, password reset |
+| Owner | Glowing messages, crown badge, full control |
+| Mobile | Swipe-to-reply, responsive, PWA manifest |
+| Themes | Dark/Light per user, persisted to DB |
+| Security | XSS escaping, input validation, rate limiting (100 req/min), CSP headers |
 
----
+## Prerequisites
 
-## 🛠️ Tech Stack
+- **Node.js** v18+ (includes `npm`)
+- **Supabase account** — free tier at https://supabase.com
+- **Groq API key** — free at https://console.groq.com (no credit card needed)
 
-- **Backend:** Node.js, Express, Socket.io
-- **Database:** Supabase (PostgreSQL)
-- **AI:** Groq (primary, free) / Anthropic (fallback)
-- **Frontend:** Vanilla JS SPA, CSS3, Font Awesome 6
+## Local Setup
 
----
+### 1. Install Dependencies
 
-## 🚀 Setup — Step by Step
+```bash
+cd backend
+npm install
+```
 
-### Step 1 — Supabase
+### 2. Create Supabase Project
 
-1. Sign up at **https://supabase.com** → Create project
-2. Go to **SQL Editor → New Query**
-3. Paste all contents of `backend/schema.sql` → Click **Run**
-4. Go to **Project Settings → API** and copy:
-   - **Project URL** → `SUPABASE_URL`
-   - **service_role** secret key → `SUPABASE_SERVICE_KEY`
+1. Go to https://supabase.com and sign up / log in
+2. Click **New project**
+3. Choose a name (e.g. `katchat`), set a database password, pick a region
+4. Wait for the database to provision (~1 minute)
 
----
+### 3. Run Database Schema
 
-### Step 2 — Groq AI Key (Free, takes 30 seconds)
+1. In the Supabase dashboard, go to **SQL Editor**
+2. Click **New Query**
+3. Open `backend/schema.sql` from the project and paste the entire contents
+4. Click **Run** — all tables, indexes, and triggers are created
 
-1. Go to **https://console.groq.com**
-2. Sign up / log in
-3. Click **API Keys → Create API Key**
-4. Copy the key (starts with `gsk_...`)
-5. Paste as `GROQ_API_KEY` in your `.env`
+### 4. Get Supabase Credentials
 
-> Groq gives you free access to Llama 3.3, Mixtral, and vision models. No credit card needed.
+In the Supabase dashboard, go to **Project Settings → API** and copy:
 
-**Available Models:**
-| Variable | Recommended Value |
-|---|---|
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` (best quality) |
-| `GROQ_VISION_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` (image analysis) |
+- **Project URL** — looks like `https://xxxxxxxxxxxx.supabase.co`
+- **service_role** secret key — starts with `eyJ...` (use this, **not** the anon key)
 
----
+### 5. Create .env File
 
-### Step 3 — Fill in .env
-
-Open `backend/.env` and fill in all values:
+Copy `backend/.env` (or create it) and fill in every value:
 
 ```env
 PORT=5000
 SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
 SUPABASE_SERVICE_KEY=eyJhbGci...
+JWT_SECRET=make_this_long_and_random_change_me
 
-JWT_SECRET=make_this_long_and_random_change_me_now
-
-# Groq (primary AI — get free key at console.groq.com)
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
 GROQ_MODEL=llama-3.3-70b-versatile
 GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 
-# Anthropic (optional fallback)
+# Optional
 ANTHROPIC_API_KEY=sk-ant-...
-
-NODE_ENV=development
 ```
 
----
+All variables are explained in the **Environment Variables** section below.
 
-### Step 4 — Install & Run
+### 6. Start the Server
 
 ```bash
-cd katchat2/backend
-npm install
+cd backend
 npm run dev
 ```
 
-You should see:
+Expected output:
 ```
-✅ Supabase connected
-🚀 KatChat running on http://localhost:5000
+Supabase connected
+KatChat running on http://localhost:5000
 ```
 
-Open **http://localhost:5000** in your browser.
+If you see `Supabase connected` instead of an error, everything works.
 
----
+### 7. Open in Browser
 
-### Step 5 — Owner Account
+Go to **http://localhost:5000**. You should see the KatChat login/signup page.
 
-Sign up with **`chandkris27@gmail.com`** — this email is automatically assigned the **Owner** role.
+### 8. Owner Account
 
----
+Sign up with **`chandkris27@gmail.com`** — this email is automatically assigned the **Owner** role. Use a different email for regular member accounts.
 
-## 👑 Roles
+## Environment Variables
+
+All values go in `backend/.env`.
+
+### Server
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | `5000` | HTTP server port |
+| `NODE_ENV` | No | `development` | Set to `production` for deployment |
+
+### Database (Supabase)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SUPABASE_URL` | **Yes** | Project URL from Supabase dashboard (Project Settings → API) |
+| `SUPABASE_SERVICE_KEY` | **Yes** | `service_role` secret key (NOT the anon/public key) |
+
+### Authentication
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `JWT_SECRET` | **Yes** | Random string used to sign auth tokens. Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+
+### AI Provider — Groq (Primary)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GROQ_API_KEY` | **Yes** | Free API key from https://console.groq.com |
+| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` (best quality) — change to any Groq-supported model |
+| `GROQ_VISION_MODEL` | No | `meta-llama/llama-4-scout-17b-16e-instruct` — used for image analysis |
+
+### AI Provider — Anthropic (Fallback)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | No | If set and Groq is unavailable, Sage falls back to Claude |
+
+### Admin
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_LOG_TOKEN` | No | Secret token to access error logs at `GET /api/logs?token=...`. Only needed in production. |
+
+## Sage AI Setup
+
+Sage is the built-in AI assistant. It requires a Groq API key (free, no credit card).
+
+### Get a Groq Key
+
+1. Go to https://console.groq.com
+2. Sign up (Google or GitHub)
+3. Click **API Keys** in the left sidebar
+4. Click **Create API Key**
+5. Copy the key (starts with `gsk_...`)
+6. Add it to `.env`:
+   ```env
+   GROQ_API_KEY=gsk_your_key_here
+   ```
+
+### Test AI Chat
+
+1. Start the server and open http://localhost:5000
+2. Sign up / log in
+3. Click the Sage icon in the sidebar or bottom nav
+4. Type a message and press Enter
+5. Sage should respond within 1–3 seconds
+
+If Sage returns a static message saying "someone forgot to plug me in", the `GROQ_API_KEY` is missing or incorrect.
+
+## Testing Checklist
+
+### Signup / Login
+- [ ] Create a new account — fill in display name, username, email, password, gender
+- [ ] Log out, log back in with the same credentials
+- [ ] Verify you land on the welcome screen with sidebar
+- [ ] Test that invalid inputs show validation errors (bad email, short password)
+
+### Global Chat
+- [ ] Send a message in global chat — it appears immediately
+- [ ] Send a message with `@username` — mention is highlighted
+- [ ] Type `/` to see command suggestions
+- [ ] Post an image in global chat
+
+### Private Chat
+- [ ] Click a user in the online list or search for a user
+- [ ] Send a private message — it appears in real-time
+- [ ] Reply to a message (click reply icon)
+- [ ] Upload images in a private message (max 5)
+- [ ] Test swipe-to-reply on mobile view
+
+### Image Upload
+- [ ] Upload a JPEG, PNG, GIF, or WebP — succeeds
+- [ ] Upload a non-image file (e.g. `.txt`) — rejected with error message
+- [ ] Upload an image larger than 10MB — rejected
+
+### Sage AI
+- [ ] Open Sage chat and send a message — AI responds
+- [ ] Ask a serious question (mental health, trauma) — Sage matches the tone
+- [ ] Send an image for analysis (camera icon in chat input)
+- [ ] Verify Sage remembers context from earlier in the conversation
+- [ ] Start a new Sage chat (if multi-chat UI exists)
+
+### Admin Features
+- [ ] Log in as owner (`chandkris27@gmail.com`)
+- [ ] Open Admin Panel — user list loads
+- [ ] Ban a user with a reason — they are locked out immediately
+- [ ] Unban the user — they can log in again
+- [ ] Create a custom role in Admin Panel → Roles
+- [ ] Assign the role to a user
+- [ ] Reset a user's password (owner only) — temporary password modal appears
+- [ ] Log in as the affected user — forced password change screen shows
+
+## Roles
 
 | Role | Color | Permissions |
 |------|-------|-------------|
@@ -119,83 +222,73 @@ Sign up with **`chandkris27@gmail.com`** — this email is automatically assigne
 | owner | Red | + Manage roles, manage users, full control, glowing messages |
 | Custom | Any | Configurable in Admin Panel → Roles |
 
----
-
-## 💬 Admin Commands (Global Chat)
+## Admin Commands (Global Chat)
 
 ```
-/ban @username "reason"         — Permanently ban
-/unban @username                — Remove ban
-/tban @username 2.5 "reason"    — Temp ban for 2.5 hours
-/tunban @username               — Remove temp ban early
+/ban @username "reason"       — Permanently ban
+/unban @username              — Remove ban
+/tban @username 2.5 "reason"  — Temp ban for 2.5 hours
+/tunban @username             — Remove temp ban early
 ```
 
-Type `/` to see command suggestions. Type `@` after the command to search users.
+Type `/` in global chat to see command suggestions. Type `@` after a command to search users.
 
----
+## Deployment Notes
 
-## 🖼️ Adding Your Own Logos
+### Deploy on Render
 
-Replace these files:
-- `frontend/public/assets/logo.png` — KatChat main logo (256×256 PNG)
-- `frontend/public/assets/sage-logo.png` — Sage AI icon (256×256 PNG, will rotate)
-- `frontend/public/assets/favicons/favicon.ico` — Browser tab icon
-- `frontend/public/assets/favicons/favicon-32x32.png`
-- `frontend/public/assets/favicons/apple-touch-icon.png`
-
----
-
-## 🌐 Deploy on Render
-
-1. Push project to GitHub
-2. Go to **https://render.com** → New Web Service
-3. Connect your GitHub repo
-4. Settings:
+1. Push the project to GitHub
+2. Go to https://render.com → **New Web Service**
+3. Connect your GitHub repository
+4. Configure:
    - **Root Directory:** `backend`
    - **Build Command:** `npm install`
    - **Start Command:** `node server.js`
-5. Add all environment variables from `.env`
+5. Add all environment variables from the **Environment Variables** section above
 6. Click **Create Web Service**
+7. Update the canonical URL in `frontend/public/index.html`:
+   ```html
+   <link rel="canonical" href="https://your-app.onrender.com/">
+   ```
 
-Update the canonical URL in `frontend/public/index.html`:
-```html
-<link rel="canonical" href="https://your-app.onrender.com/">
-```
+### Required Environment Variables for Deployment
 
----
+All of these must be set in your hosting dashboard:
 
-## 🔧 Troubleshooting
+| Variable | Why It's Required |
+|----------|-------------------|
+| `SUPABASE_URL` | Database connection |
+| `SUPABASE_SERVICE_KEY` | Database authentication (service_role, not anon) |
+| `JWT_SECRET` | Token signing — use a long random value per deployment |
+| `GROQ_API_KEY` | Sage AI assistant |
+| `NODE_ENV=production` | Enables production mode (hides stack traces, etc.) |
+
+### Post-Deployment Checks
+
+- [ ] Visit `https://your-app.onrender.com` — loads without errors
+- [ ] Sign up and log in
+- [ ] Check `https://your-app.onrender.com/health` — returns `{"status":"ok"}`
+- [ ] Test Sage AI responds
+
+## Adding Logos
+
+| File | Purpose |
+|------|---------|
+| `frontend/public/assets/logo.png` | Main logo (256×256 PNG) |
+| `frontend/public/assets/sage-logo.png` | Sage AI icon (256×256 PNG, auto-rotates) |
+| `frontend/public/assets/favicons/favicon.ico` | Browser tab icon |
+| `frontend/public/assets/favicons/favicon-32x32.png` | 32px favicon |
+| `frontend/public/assets/favicons/apple-touch-icon.png` | iOS home screen icon |
+
+## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| `Supabase error` | Wrong URL or key in `.env` — use service_role, not anon |
+| `Supabase error` | Wrong URL or key in `.env` — use `service_role`, not anon |
 | `Request failed` (signup/login) | Re-run `schema.sql` in Supabase SQL Editor |
-| Sage not responding | Check `GROQ_API_KEY` in `.env`, get free key at console.groq.com |
-| Images too large | Already compressed client-side — max 800px before sending |
-| Online status not working | Works correctly after deploy; locally, the 30s heartbeat syncs it |
+| Sage not responding | Check `GROQ_API_KEY` in `.env` — get free key at console.groq.com |
+| Images too large | Already compressed client-side (max 800px before sending) |
+| Online status not working | 30s heartbeat syncs it; works correctly after deploy |
 | Owner glow not showing | Only shows on OTHER users' messages when they have Owner role |
-| Ban not immediate | Fixed — ban now updates instantly via socket without page refresh |
-
----
-
-## 📋 Changed Files Reference (v2.1)
-
-| File | What Changed |
-|------|-------------|
-| `backend/schema.sql` | Added `ban_reason`, `announcement_comments`, auto-cleanup trigger — **re-run in Supabase** |
-| `backend/routes/ai.js` | Groq as primary AI, full KatChat context in system prompt |
-| `backend/routes/announcements.js` | Comments CRUD endpoints |
-| `backend/routes/users.js` | Ban reason field |
-| `backend/socket/index.js` | Immediate ban/unban, `admin_ban_user`, `admin_unban_user` events |
-| `backend/.env` | Added Groq keys |
-| `frontend/public/index.html` | PNG logos, topbar beam div, slogan, favicons, read-more about |
-| `frontend/public/assets/logo.png` | New PNG logo (replaces SVG) |
-| `frontend/public/assets/sage-logo.png` | New PNG logo (replaces SVG) |
-| `frontend/public/assets/favicons/` | All favicon PNGs + ICO |
-| `frontend/public/css/style.css` | Fixed owner glow, bubble width, topbar beam animation |
-| `frontend/public/js/global.js` | Fixed command dropdown with user suggestions, no skeleton flash |
-| `frontend/public/js/admin.js` | Working ban button with reason dialog |
-| `frontend/public/js/socket-client.js` | Instant ban/unban UI, heartbeat |
-| `frontend/public/js/sage.js` | Image compression, Groq-compatible |
-| `frontend/public/js/announcements.js` | Comments system |
-| `frontend/public/js/settings.js` | Read-more about section |
+| Ban not immediate | Ban updates instantly via socket — no page refresh needed |
+| `Module not found` | Run `npm install` in the `backend/` directory |

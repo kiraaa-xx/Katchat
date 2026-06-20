@@ -16,10 +16,18 @@ const {
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, { cors: { origin: '*', methods: ['GET','POST'] } });
+const io = socketIo(server, { cors: { origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*', methods: ['GET','POST'] } });
 
 // ── Middleware Setup ──────────────────────────────────────────
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' ws:; media-src 'self'");
+  next();
+});
 app.use(requestLogger);
 app.use(checkRateLimit);
 app.use(express.json({ limit: '25mb' }));
