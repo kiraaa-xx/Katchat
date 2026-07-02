@@ -67,9 +67,9 @@ function makeAdminUserRow(u) {
       ${!isSelf && canManage
         ? u.is_banned_from_global
           ? `<button class="btn-xs primary" onclick="adminUnban('${u.id}', this)"><i class="fa fa-unlock"></i> Unban</button>`
-          : `<button class="btn-xs danger" onclick="openBanDialog('${u.id}','${esc(u.display_name)}')"><i class="fa fa-ban"></i> Ban</button>`
+          : `<button class="btn-xs danger" onclick="openBanDialog('${u.id}',${onclickStr(u.display_name)})"><i class="fa fa-ban"></i> Ban</button>`
         : ''}
-      ${!isSelf && isOwner ? `<button class="btn-xs secondary" onclick="resetUserPassword('${u.id}','${esc(u.display_name)}')"><i class="fa fa-key"></i> Reset Password</button>` : ''}
+      ${!isSelf && isOwner ? `<button class="btn-xs secondary" onclick="resetUserPassword('${u.id}',${onclickStr(u.display_name)})"><i class="fa fa-key"></i> Reset Password</button>` : ''}
     </div>`;
   return row;
 }
@@ -142,8 +142,20 @@ async function resetUserPassword(userId, displayName) {
 }
 
 function copyToClipboard(text) {
-  navigator.clipboard.writeText(text);
-  showToast('Copied to clipboard ✓', 'success');
+  try {
+    navigator.clipboard.writeText(text);
+    showToast('Copied to clipboard ✓', 'success');
+  } catch {
+    // Fallback for non-HTTPS environments
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast('Copied to clipboard ✓', 'success');
+  }
 }
 
 function filterAdminUsers(q) {
@@ -213,8 +225,6 @@ function makeRoleRow(role) {
     </div>`;
   return row;
 }
-
-let editingRoleName = null;
 
 function openRoleModal(roleName) {
   editingRoleName = roleName;
@@ -331,7 +341,7 @@ async function loadAdminBans() {
           <div class="ar-meta" style="color:var(--txt3);font-size:10px">Joined ${bannedDate}</div>
         </div>
         <div class="ar-actions">
-          <button class="btn-xs primary" onclick="adminUnbanFromBans('${u.id}', '${esc(u.display_name)}', this)"><i class="fa fa-unlock"></i> Unban</button>
+          <button class="btn-xs primary" onclick="adminUnbanFromBans('${u.id}', ${onclickStr(u.display_name)}, this)"><i class="fa fa-unlock"></i> Unban</button>
         </div>`;
       list.appendChild(row);
     });
@@ -391,3 +401,24 @@ async function loadAdminPosts() {
     });
   } catch (err) { list.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${esc(err.message)}</p></div>`; }
 }
+
+window.openAdmin = openAdmin;
+window.adminTab = adminTab;
+window.openBanDialog = openBanDialog;
+window.changeUserRole = changeUserRole;
+window.adminBan = adminBan;
+window.adminUnban = adminUnban;
+window.resetUserPassword = resetUserPassword;
+window.copyToClipboard = copyToClipboard;
+window.filterAdminUsers = filterAdminUsers;
+window.loadAdminUsers = loadAdminUsers;
+window.loadAdminRoles = loadAdminRoles;
+window.openRoleModal = openRoleModal;
+window.setRoleColor = setRoleColor;
+window.previewRoleIcon = previewRoleIcon;
+window.setIcon = setIcon;
+window.submitRole = submitRole;
+window.deleteRole = deleteRole;
+window.syncColorFromHex = syncColorFromHex;
+window.loadAdminBans = loadAdminBans;
+window.loadAdminPosts = loadAdminPosts;

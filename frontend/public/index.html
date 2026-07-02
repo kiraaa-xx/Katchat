@@ -195,6 +195,9 @@
       </div>
     </div>
     <div class="topbar-right">
+      <button class="icon-btn" onclick="openHelp()" title="Help Center">
+        <i class="fa fa-circle-question"></i>
+      </button>
       <button class="icon-btn pos-rel" id="add-friend-btn" onclick="openAddFriend()" title="Add Friend">
         <i class="fa fa-user-plus"></i>
         <span class="notif-dot hidden" id="req-dot"></span>
@@ -226,6 +229,7 @@
         <div class="sidebar-quick">
           <button class="quick-btn accent" onclick="navTo('global')"><i class="fa fa-globe"></i><span>Global</span></button>
           <button class="quick-btn" onclick="navTo('announcements')"><i class="fa fa-bullhorn"></i><span>Posts</span></button>
+          <button class="quick-btn" onclick="openHelp()"><i class="fa fa-circle-question"></i><span>Help</span></button>
         </div>
         <div id="chat-list"></div>
       </div>
@@ -247,6 +251,10 @@
             <button class="btn-secondary" onclick="navTo('global')"><i class="fa fa-globe"></i> Global Chat</button>
             <button class="btn-secondary" onclick="navTo('announcements')"><i class="fa fa-bullhorn"></i> Announcements</button>
           </div>
+          <div class="welcome-announcements" id="welcome-announcements"></div>
+          <div class="welcome-help-link">
+            <a onclick="openHelp()"><i class="fa fa-circle-question"></i> Help Center &amp; FAQ</a>
+          </div>
         </div>
       </div>
 
@@ -263,7 +271,7 @@
             <span class="ch-status" id="ch-status"></span>
           </div>
           <div class="ch-actions">
-            <button class="icon-btn" onclick="openProfile(window.activeFriend)" title="Profile"><i class="fa fa-user"></i></button>
+            <button class="icon-btn" onclick="openProfile(activeFriend)" title="Profile"><i class="fa fa-user"></i></button>
           </div>
         </div>
         <div class="msgs-wrap" id="priv-msgs" data-swipe-container="true"></div>
@@ -324,6 +332,266 @@
         <div class="ann-container" id="ann-container"></div>
       </div>
 
+      <!-- HELP CENTER -->
+      <div id="v-help" class="view hidden">
+        <div class="chat-header">
+          <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
+          <span class="ch-name"><i class="fa fa-circle-question"></i> Help Center</span>
+        </div>
+        <div class="help-scroll">
+          <div class="help-hero">
+            <i class="fa fa-circle-question help-hero-icon"></i>
+            <h2 class="help-hero-title">How can we help you?</h2>
+            <p class="help-hero-sub">Everything you need to know about using KatChat</p>
+          </div>
+
+          <!-- Getting Started -->
+          <div class="help-section">
+            <button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="true">
+              <i class="fa fa-rocket"></i> Getting Started
+              <i class="fa fa-chevron-down help-arrow"></i>
+            </button>
+            <div class="help-section-body">
+              <div class="help-section-body-inner">
+                <p><strong>Welcome to KatChat!</strong> A real-time messaging platform with private chat, global chat, AI assistant (Sage), announcements, and more.</p>
+                <ul>
+                  <li><strong>Create an account</strong> — Sign up with your display name, username, email, and password. Your username must be 3-20 lowercase letters, numbers, or underscores.</li>
+                  <li><strong>Log in</strong> — Use your email and password. If your password was reset by an admin, you'll be asked to set a new one on your first login.</li>
+                  <li><strong>Navigate</strong> — Use the sidebar (desktop) or bottom nav (mobile) to switch between Home, Global Chat, Posts, and Settings. The top bar has buttons for Friends, Sage AI, and your profile.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Key Features -->
+          <div class="help-section">
+            <button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="false">
+              <i class="fa fa-star"></i> Key Features
+              <i class="fa fa-chevron-down help-arrow"></i>
+            </button>
+            <div class="help-section-body hidden">
+              <div class="help-section-body-inner">
+                <div class="help-subsection">
+                  <h4><i class="fa fa-globe"></i> Global Chat</h4>
+                  <p>Chat with everyone on the platform in real time. Use <code>@username</code> to mention someone (highlighted in gold), or type <code>/</code> to see available commands like ban, unban, and temp-ban. You can also share images in global chat.</p>
+                </div>
+                <div class="help-subsection">
+                  <h4><i class="fa fa-comment"></i> Private Chat</h4>
+                  <p>Send direct messages to your friends. Click a friend in the sidebar or search for users to start a private conversation. Features include image uploads (up to 5 at a time), reply to specific messages, and swipe-to-reply on mobile.</p>
+                </div>
+                <div class="help-subsection">
+                  <h4><i class="fa fa-user-friends"></i> Friends</h4>
+                  <p>Search for users by name or username and send friend requests. Accept or decline incoming requests. View mutual friends and online status. Friends appear in your sidebar's Friends tab for quick chatting.</p>
+                </div>
+                <div class="help-subsection">
+                  <h4><i class="fa fa-bullhorn"></i> Announcements</h4>
+                  <p>View platform announcements from admins. Pinned announcements are highlighted with a gold glow for importance. You can comment on announcements if you have permission. Admins can create, edit, and pin announcements.</p>
+                </div>
+                <div class="help-subsection">
+                  <h4><i class="fa fa-robot"></i> Sage AI</h4>
+                  <p>Your AI companion Sage. Ask Sage anything about KatChat features, for creative ideas, or just for a chat. Sage adapts its personality based on your profile. You can also send images for Sage to analyze. Sage remembers recent conversation context.</p>
+                </div>
+                <div class="help-subsection">
+                  <h4><i class="fa fa-gear"></i> Settings</h4>
+                  <p>Update your display name, gender, and profile picture. Change your password (requires your current password). Toggle between Dark and Light themes — your preference is saved to your profile.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Commands -->
+          <div class="help-section">
+            <button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="false">
+              <i class="fa fa-terminal"></i> Global Chat Commands
+              <i class="fa fa-chevron-down help-arrow"></i>
+            </button>
+            <div class="help-section-body hidden">
+              <div class="help-section-body-inner">
+                <p>Type <code>/</code> in the global chat input to see available commands. Only admins and owners can use moderation commands:</p>
+                <div class="help-cmd-list">
+                  <div class="help-cmd"><code>/ban @username "reason"</code><span>Permanently ban a user</span></div>
+                  <div class="help-cmd"><code>/unban @username</code><span>Remove a permanent ban</span></div>
+                  <div class="help-cmd"><code>/tban @username 2.5 "reason"</code><span>Temp ban for 2.5 hours</span></div>
+                  <div class="help-cmd"><code>/tunban @username</code><span>Remove a temp ban early</span></div>
+                </div>
+                <p style="margin-top:10px">Type <code>@</code> after a command to search for a user by name.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Roles & Permissions -->
+          <div class="help-section">
+            <button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="false">
+              <i class="fa fa-shield"></i> Roles &amp; Permissions
+              <i class="fa fa-chevron-down help-arrow"></i>
+            </button>
+            <div class="help-section-body hidden">
+              <div class="help-section-body-inner">
+                <div class="help-role-row">
+                  <span class="help-role-badge" style="background:var(--txt3)">Member</span>
+                  <span>Chat, global chat, view announcements, comment on announcements</span>
+                </div>
+                <div class="help-role-row">
+                  <span class="help-role-badge" style="background:var(--cyan)">Admin</span>
+                  <span>All Member permissions + ban users, delete messages, create announcements, access admin panel</span>
+                </div>
+                <div class="help-role-row">
+                  <span class="help-role-badge" style="background:var(--danger)">Owner</span>
+                  <span>All Admin permissions + manage roles, manage users, full control, glowing messages</span>
+                </div>
+                <p style="margin-top:12px;font-size:13px;color:var(--txt2)">Custom roles can be created by the Owner. Each role has configurable permissions.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ -->
+          <div class="help-section">
+            <button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="false">
+              <i class="fa fa-question-circle"></i> FAQ
+              <i class="fa fa-chevron-down help-arrow"></i>
+            </button>
+            <div class="help-section-body hidden">
+              <div class="help-section-body-inner">
+
+                <div class="help-faq-group">
+                  <div class="help-faq-group-title"><i class="fa fa-lock"></i> Account &amp; Security</div>
+
+                  <div class="help-faq-item">
+                    <button class="help-faq-q" onclick="toggleFaqItem(this)" aria-expanded="false">
+                      <i class="fa fa-key"></i> How do I change my password?
+                      <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="help-faq-a-wrap hidden">
+                      <div class="help-faq-a">
+                        <p>Open <strong>Settings</strong> → <strong>Security</strong>. Enter your current password, then your new password (minimum 8 characters), and click <strong>Change Password</strong>.</p>
+                        <p>If you forgot your password, contact the owner at <strong>chandkris27@gmail.com</strong> to request a reset from the Admin Panel.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="help-faq-item">
+                    <button class="help-faq-q" onclick="toggleFaqItem(this)" aria-expanded="false">
+                      <i class="fa fa-history"></i> My password was reset by an admin
+                      <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="help-faq-a-wrap hidden">
+                      <div class="help-faq-a">
+                        <p>Log in using the temporary password provided by the admin. After a successful login, you will be prompted to set a new password before you can continue using KatChat.</p>
+                        <p>Your session will be restricted until the new password is set.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="help-faq-item">
+                    <button class="help-faq-q" onclick="toggleFaqItem(this)" aria-expanded="false">
+                      <i class="fa fa-pen"></i> Can I change my username or email?
+                      <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="help-faq-a-wrap hidden">
+                      <div class="help-faq-a">
+                        <p>Currently, usernames and emails cannot be changed after account creation. This ensures account security and consistent identity across the platform.</p>
+                        <p>If you have a significant reason, please contact the owner at <strong>chandkris27@gmail.com</strong>.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div class="help-faq-group">
+                  <div class="help-faq-group-title"><i class="fa fa-life-ring"></i> Getting Help</div>
+
+                  <div class="help-faq-item">
+                    <button class="help-faq-q" onclick="toggleFaqItem(this)" aria-expanded="false">
+                      <i class="fa fa-envelope"></i> How do I contact the owner?
+                      <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="help-faq-a-wrap hidden">
+                      <div class="help-faq-a">
+                        <p>You can reach the owner directly via email at <strong>chandkris27@gmail.com</strong> for account issues, ban appeals, feature requests, or any other questions.</p>
+                        <p>Alternatively, ask <strong>Sage AI</strong> for instant guidance about KatChat features and settings.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="help-faq-item">
+                    <button class="help-faq-q" onclick="toggleFaqItem(this)" aria-expanded="false">
+                      <i class="fa fa-rocket"></i> New to KatChat? Where do I start?
+                      <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="help-faq-a-wrap hidden">
+                      <div class="help-faq-a">
+                        <p>Simple rule: <strong>Chat, connect, and enjoy</strong>. Respect other users, follow community guidelines, and keep the environment friendly.</p>
+                        <p>Start with the <strong>Global Chat</strong> to meet everyone, then explore <strong>Private Chats</strong> with friends, and try <strong>Sage AI</strong> for instant answers.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div class="help-faq-group">
+                  <div class="help-faq-group-title"><i class="fa fa-wrench"></i> Troubleshooting</div>
+
+                  <div class="help-faq-item">
+                    <button class="help-faq-q" onclick="toggleFaqItem(this)" aria-expanded="false">
+                      <i class="fa fa-ban"></i> I was banned. What can I do?
+                      <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="help-faq-a-wrap hidden">
+                      <div class="help-faq-a">
+                        <p>Banned users can still use <strong>private chats</strong> and <strong>view announcements</strong>. However, sending global chat messages and posting announcement comments will be disabled.</p>
+                        <p>If you believe this was a mistake or wish to appeal, please contact the owner at <strong>chandkris27@gmail.com</strong>.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="help-faq-item">
+                    <button class="help-faq-q" onclick="toggleFaqItem(this)" aria-expanded="false">
+                      <i class="fa fa-robot"></i> Sage AI is not responding
+                      <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="help-faq-a-wrap hidden">
+                      <div class="help-faq-a">
+                        <p>Sage may be temporarily unavailable due to a server issue or high demand. Wait a few minutes and try again.</p>
+                        <p>If the problem persists, check your internet connection or contact the owner for further assistance.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact -->
+          <div class="help-section">
+            <button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="true">
+              <i class="fa fa-envelope"></i> Contact Owner
+              <i class="fa fa-chevron-down help-arrow"></i>
+            </button>
+            <div class="help-section-body">
+              <div class="help-section-body-inner">
+                <div class="help-contact-card">
+                  <i class="fa fa-envelope help-contact-icon"></i>
+                  <div>
+                    <strong>Email the owner</strong>
+                    <p>For account issues, ban appeals, feature requests, or any other questions, email <strong>chandkris27@gmail.com</strong>.</p>
+                  </div>
+                </div>
+                <div class="help-contact-card">
+                  <i class="fa fa-robot help-contact-icon"></i>
+                  <div>
+                    <strong>Ask Sage AI</strong>
+                    <p>Sage knows everything about KatChat and can answer your questions instantly. <button class="btn-text" onclick="openSage()"><i class="fa fa-external-link-alt"></i> Open Sage</button></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       <!-- SETTINGS -->
       <div id="v-settings" class="view hidden">
         <div class="chat-header">
@@ -348,6 +616,10 @@
             <div class="settings-card">
               <h3><i class="fa fa-user"></i> Profile</h3>
               <div class="form-group"><label>Display Name</label><div class="field-wrap"><input type="text" id="set-name" placeholder="Your display name"></div></div>
+              <div class="form-group"><label>Bio <span style="color:var(--txt3);font-weight:400">(max 20 words)</span></label>
+                <div class="field-wrap"><textarea id="set-bio" class="bio-textarea" placeholder="Tell others about yourself..." maxlength="200" rows="2" oninput="updateBioCount()"></textarea></div>
+                <span id="bio-count" style="font-size:10px;color:var(--txt3)">0/20 words</span>
+              </div>
               <div class="form-group"><label>Gender</label>
                 <select id="set-gender" class="field-select">
                   <option value="male">Male (he/him)</option>
@@ -373,6 +645,16 @@
                   <i class="fa fa-moon t-left"></i>
                   <i class="fa fa-sun t-right"></i>
                 </div>
+              </div>
+              <div class="theme-row" style="margin-top:14px">
+                <div>
+                  <span>Fast mode</span>
+                  <p style="font-size:11px;color:var(--txt3);margin-top:2px">Disables animations for low-end devices</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="fast-mode-toggle" onchange="toggleFastMode(this.checked)">
+                  <span class="switch-slider"></span>
+                </label>
               </div>
             </div>
             <div class="settings-card hidden" id="admin-card">
@@ -444,7 +726,7 @@
           <div class="sage-main">
             <div class="chat-header">
               <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
-              <button class="icon-btn sage-history-toggle" onclick="toggleSagePanel()" title="Chat History"><i class="fa fa-sidebar"></i></button>
+              <button class="sage-history-toggle" onclick="toggleSagePanel()" title="Chat History"><i class="fa fa-clock-rotate-left"></i><span>History</span></button>
               <img src="assets/sage-logo.png" class="sage-header-icon rotating" alt="Sage">
               <div class="ch-info">
                 <span class="ch-name">Sage</span>
@@ -580,6 +862,22 @@
     </div>
   </div>
 
+  <!-- Avatar Crop -->
+  <div id="m-av-crop" class="modal hidden" style="max-width:360px">
+    <div class="modal-head"><h2><i class="fa fa-crop"></i> Adjust Avatar</h2><button class="modal-x" onclick="closeModal()"><i class="fa fa-xmark"></i></button></div>
+    <div class="modal-body" style="text-align:center">
+      <div class="av-crop-viewport" id="av-crop-viewport">
+        <img id="av-crop-img" src="" alt="Avatar preview" draggable="false">
+      </div>
+      <div class="av-crop-zoom">
+        <i class="fa fa-search-minus"></i>
+        <input type="range" id="av-crop-zoom" min="0.1" max="5" step="0.05" value="1" oninput="setAvCropZoom(this.value)">
+        <i class="fa fa-search-plus"></i>
+      </div>
+      <button class="btn-primary full mt-12" onclick="applyAvatarCrop()"><i class="fa fa-check"></i> Save Avatar</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- TOAST -->
@@ -607,6 +905,7 @@
 <script src="js/settings.js" defer></script>
 <script src="js/admin.js" defer></script>
 <script src="js/swipe.js" defer></script>
+<script src="js/help.js" defer></script>
 <script src="js/app.js" defer></script>
 
 <!-- Theme color sync for light mode -->

@@ -83,12 +83,20 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/me', auth, async (req, res) => {
-  res.json({ user: safeUser(req.user) });
+  try {
+    res.json({ user: safeUser(req.user) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.put('/mark-intro-seen', auth, async (req, res) => {
-  await supabase.from('users').update({ intro_seen: true }).eq('id', req.user.id);
-  res.json({ success: true });
+  try {
+    await supabase.from('users').update({ intro_seen: true }).eq('id', req.user.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Reset password (owner only) ────────────────────────────────
@@ -124,7 +132,19 @@ router.post('/admin/reset-password', auth, ownerOnly, async (req, res) => {
 // ── Change password (user endpoint) ────────────────────────────
 router.put('/change-password', auth, async (req, res) => {
   try {
-    const { newPassword, fromReset } = req.body;
+    const { currentPassword, newPassword, fromReset } = req.body;
+
+    // For normal password changes (not forced reset), verify current password
+    if (!fromReset) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required' });
+      }
+      const { data: userData } = await supabase.from('users').select('password').eq('id', req.user.id).single();
+      if (!userData) return res.status(404).json({ error: 'User not found' });
+      const isMatch = await bcrypt.compare(currentPassword, userData.password);
+      if (!isMatch) return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
     if (!newPassword || newPassword.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }

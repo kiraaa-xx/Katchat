@@ -33,7 +33,7 @@ router.get('/search', auth, async (req, res) => {
     const { q } = req.query;
     if (!q || q.length < 1) return res.json({ users: [] });
     const { data } = await supabase.from('users')
-      .select('id,display_name,username,profile_picture,profile_color,role,is_online,pronouns,last_seen')
+      .select('id,display_name,username,profile_picture,profile_color,role,is_online,pronouns,last_seen,bio')
       .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
       .neq('id', req.user.id).limit(20);
     res.json({ users: data || [] });
@@ -50,7 +50,7 @@ router.get('/friends', auth, async (req, res) => {
     const receivedRows = (friendRows || []).filter(r => r.status === 'pending' && r.friend_id === uid);
     const fetchUsers = async (ids) => {
       if (!ids.length) return [];
-      const { data } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,is_online,last_seen,pronouns').in('id', ids);
+      const { data } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,is_online,last_seen,pronouns,bio').in('id', ids);
       return data || [];
     };
     const [friends, sent, received] = await Promise.all([fetchUsers(friendIds), fetchUsers(sentRows.map(r => r.friend_id)), fetchUsers(receivedRows.map(r => r.user_id))]);
@@ -93,16 +93,30 @@ router.delete('/friend/:userId', auth, async (req, res) => {
 
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { displayName, gender, theme } = req.body;
+    let { displayName, gender, theme, bio } = req.body;
     if (displayName && /[<>&"']/.test(displayName))
       return res.status(400).json({ error: 'Display name contains invalid characters' });
-    const lenErr = validateMaxLength({ displayName, gender, theme }, { displayName: 50, gender: 20, theme: 20 });
+    if (bio) {
+      const words = bio.trim().split(/\s+/);
+      if (words.length > 20) return res.status(400).json({ error: 'Bio must be 20 words or fewer' });
+      if (/[<>&"']/.test(bio)) return res.status(400).json({ error: 'Bio contains invalid characters' });
+    }
+    const lenErr = validateMaxLength({ displayName, gender, theme, bio }, { displayName: 50, gender: 20, theme: 20, bio: 200 });
     if (lenErr) return res.status(400).json({ error: lenErr });
     const updates = { updated_at: new Date().toISOString() };
     if (displayName) updates.display_name = displayName;
     if (theme) updates.theme = theme;
+    if (bio !== undefined) updates.bio = bio;
     if (gender) { updates.gender = gender; updates.pronouns = pronounMap[gender]; updates.profile_color = colorMap[gender]; }
-    const { data: user } = await supabase.from('users').update(updates).eq('id', req.user.id).select().single();
+    let user;
+    try {
+      const result = await supabase.from('users').update(updates).eq('id', req.user.id).select().single();
+      user = result.data;
+    } catch (updateErr) {
+      // Retry without bio in case column doesn't exist
+      if (bio !== undefined) { delete updates.bio; const result = await supabase.from('users').update(updates).eq('id', req.user.id).select().single(); user = { ...result.data, bio }; }
+      else throw updateErr;
+    }
     res.json({ user: safe(user) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

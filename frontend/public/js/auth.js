@@ -92,12 +92,22 @@ async function checkAuth() {
   const token = localStorage.getItem('kc_token');
   if (!token) return false;
   try {
+    const decoded = JSON.parse(atob(token.split('.')[1]));
+    if (decoded.exp * 1000 < Date.now()) {
+      localStorage.removeItem('kc_token');
+      return false;
+    }
+  } catch {}
+  try {
     const { user } = await api.me();
     state.user = user;
     state.token = token;
     return true;
-  } catch {
-    localStorage.removeItem('kc_token');
+  } catch (err) {
+    const msg = err?.message || '';
+    if (msg.includes('401') || msg.includes('No token') || msg.includes('Invalid token') || msg.includes('Authentication failed')) {
+      localStorage.removeItem('kc_token');
+    }
     return false;
   }
 }
@@ -114,8 +124,9 @@ function confirmLogout() {
 }
 
 function showChangePasswordView() {
-  // Hide auth page, show change password view
-  document.getElementById('auth-page').classList.add('hidden');
+  // Hide login/signup cards, show change password view
+  document.getElementById('login-card').classList.add('hidden');
+  document.getElementById('signup-card').classList.add('hidden');
   document.getElementById('intro-screen').style.display = 'none';
   const changePassView = document.getElementById('v-change-password');
   if (changePassView) {
@@ -133,10 +144,13 @@ async function submitChangePassword() {
     const confirmPw = document.getElementById('confirm-password-input').value;
     const btn = document.getElementById('change-pass-btn');
 
-    // Validate form (compare with empty current password since it's forced reset)
-    const validation = validatePasswordChangeForm('', newPw, confirmPw);
-    if (!validation.valid) {
-      showValidationErrors(validation.errors, 'change-pass-err');
+    // Validate new password (no current password needed for forced reset)
+    if (!newPw || newPw.length < 8) {
+      showValidationErrors(['New password must be at least 8 characters'], 'change-pass-err');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      showValidationErrors(['Passwords do not match'], 'change-pass-err');
       return;
     }
 

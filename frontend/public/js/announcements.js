@@ -1,5 +1,3 @@
-let editingAnnId = null;
-
 async function openAnnouncements() {
   showView('announcements');
   const rolePerms = state.roles.find(r => r.name === state.user?.role)?.permissions || {};
@@ -37,13 +35,12 @@ function makeAnnCard(ann) {
 
   // Image section — clickable for full-view modal
   const imageSection = ann.image ? `
-    <div class="ann-card-img-wrap" onclick="openAnnImageViewer('${ann.image.replace(/'/g, "\\'")}')" title="Click to view full image">
+    <div class="ann-card-img-wrap" onclick="openAnnImageViewer(${onclickStr(ann.image)})" title="Click to view full image">
       <img src="${ann.image}" class="ann-card-img" alt="Announcement image" loading="lazy" onerror="this.closest('.ann-card-img-wrap').remove()">
       <div class="ann-img-overlay"><i class="fa fa-expand-alt"></i></div>
     </div>` : '';
 
   card.innerHTML = `
-    ${imageSection}
     <div class="ann-card-body">
       ${ann.pinned ? '<div class="ann-pin-badge"><i class="fa fa-thumbtack"></i> Pinned</div>' : ''}
       <h2 class="ann-card-title">${esc(ann.title)}</h2>
@@ -76,7 +73,7 @@ function makeAnnCard(ann) {
           </div>
           ${canComment ? `
           <div class="comment-input-row">
-            <div class="av xs" id="comment-av-${ann.id}" style="background:${state.user?.profile_color||'#555'};flex-shrink:0">${(state.user?.display_name||'?')[0].toUpperCase()}</div>
+            ${makeAvEl(state.user, 'xs').outerHTML}
             <div class="comment-input-wrap">
               <input type="text" class="comment-input" id="ci-${ann.id}" placeholder="Write a comment..." onkeydown="commentKey(event,'${ann.id}')">
               <button class="comment-send-btn" onclick="submitComment('${ann.id}')" aria-label="Send comment"><i class="fa fa-paper-plane" aria-hidden="true"></i></button>
@@ -84,7 +81,8 @@ function makeAnnCard(ann) {
           </div>` : `<p class="comment-banned-note"><i class="fa fa-lock"></i> ${state.user?.is_banned_from_global ? 'Banned users cannot comment.' : 'You cannot comment.'}</p>`}
         </div>
       </div>
-    </div>`;
+    </div>
+    ${imageSection}`;
   return card;
 }
 
@@ -267,3 +265,13 @@ async function deleteAnn(annId) {
     catch (err) { showToast(err.message, 'error'); }
   });
 }
+
+window.openAnnouncements = openAnnouncements;
+window.openAnnModal = openAnnModal;
+window.submitAnnouncement = submitAnnouncement;
+window.deleteAnn = deleteAnn;
+window.toggleComments = toggleComments;
+window.submitComment = submitComment;
+window.deleteComment = deleteComment;
+window.commentKey = commentKey;
+window.previewAnnImg = previewAnnImg;

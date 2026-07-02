@@ -3,7 +3,7 @@ async function openPrivateChat(friend) {
   replyToMsg = null;
   selectedImages = [];
 
-  document.getElementById('reply-preview')?.classList.add('hidden');
+  document.getElementById('priv-reply-preview')?.classList.add('hidden');
   document.getElementById('img-previews')?.classList.add('hidden');
   document.getElementById('typing-bar')?.classList.add('hidden');
   document.getElementById('priv-input').value = '';
@@ -95,7 +95,7 @@ function makePrivMsgEl(msg) {
 
   const imagesHtml = msg.images?.length ? `
     <div class="msg-imgs count-${Math.min(msg.images.length, 3)}">
-      ${msg.images.map(s => `<img src="${esc(s)}" onclick="openImgViewer('${esc(s)}')" loading="lazy">`).join('')}
+      ${msg.images.map(s => `<img src="${esc(s)}" onclick="openImgViewer(${onclickStr(s)})" loading="lazy">`).join('')}
     </div>` : '';
 
   const canDelete = isOwn || state.roles.find(r => r.name === state.user?.role)?.permissions?.canDeleteMessages;
@@ -108,9 +108,9 @@ function makePrivMsgEl(msg) {
       ${imagesHtml}
       <div class="msg-meta">
         <span class="msg-time">${fmtTime(msg.created_at)}</span>
-        ${isOwn ? `<span class="msg-read"><i class="fa fa-check"></i></span>` : ''}
+        ${isOwn ? `<span class="msg-read"><i class="fa fa-check${msg.read_by?.length ? '-double" style="color:var(--accent)' : ''}"></i></span>` : ''}
         <div class="msg-actions">
-          <button class="mac-btn" onclick="setPrivReply(event,'${msg.id}','${esc(sender.display_name)}','${esc((msg.content||'').substring(0,60))}')" title="Reply"><i class="fa fa-reply"></i></button>
+          <button class="mac-btn" onclick="setPrivReply(event,'${msg.id}',${onclickStr(sender.display_name)},${onclickStr((msg.content||'').substring(0,60))})" title="Reply"><i class="fa fa-reply"></i></button>
           ${canDelete ? `<button class="mac-btn" onclick="deletePrivMsg('${msg.id}')" title="Delete" style="color:var(--danger)"><i class="fa fa-trash"></i></button>` : ''}
         </div>
       </div>

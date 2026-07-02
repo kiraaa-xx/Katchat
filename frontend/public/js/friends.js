@@ -53,11 +53,17 @@ function renderFriendsList() {
     return;
   }
   if (online.length) {
-    list.innerHTML += `<div class="friends-section-label"><i class="fa fa-circle" style="color:var(--accent);font-size:8px"></i> Online — ${online.length}</div>`;
+    const lbl = document.createElement('div');
+    lbl.className = 'friends-section-label';
+    lbl.innerHTML = '<i class="fa fa-circle" style="color:var(--accent);font-size:8px"></i> Online — ' + online.length;
+    list.appendChild(lbl);
     online.forEach(f => list.appendChild(makeFriendItem(f)));
   }
   if (offline.length) {
-    list.innerHTML += `<div class="friends-section-label">Offline — ${offline.length}</div>`;
+    const lbl = document.createElement('div');
+    lbl.className = 'friends-section-label';
+    lbl.textContent = 'Offline — ' + offline.length;
+    list.appendChild(lbl);
     offline.forEach(f => list.appendChild(makeFriendItem(f)));
   }
 }

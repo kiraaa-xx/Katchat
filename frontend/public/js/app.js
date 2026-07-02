@@ -6,7 +6,9 @@ function navTo(view) {
   } else if (view === 'global') openGlobal();
   else if (view === 'announcements') openAnnouncements();
   else if (view === 'settings') openSettings();
-  else if (view === 'admin') openAdmin();
+   else if (view === 'admin') openAdmin();
+   else if (view === 'help') openHelp();
+   else if (view === 'sage') openSage();
 }
 
 // ── App Init ──────────────────────────────────────────────────
@@ -20,6 +22,13 @@ async function initApp() {
     playIntro(() => {
       document.getElementById('auth-page').classList.remove('hidden');
     });
+    return;
+  }
+
+  if (state.user.must_change_password) {
+    document.getElementById('auth-page').classList.remove('hidden');
+    document.getElementById('intro-screen').style.display = 'none';
+    showChangePasswordView();
     return;
   }
 
@@ -77,6 +86,7 @@ async function enterApp() {
   initSocket(state.token);
   await loadFriends();
   showView('welcome');
+  loadWelcomeAnnouncements();
   // Bottom nav is always visible — remove hidden class
   const bnav = document.getElementById('bottom-nav');
   if (bnav) bnav.classList.remove('hidden');
@@ -87,22 +97,22 @@ async function enterApp() {
 let heartbeatInterval = null;
 
 function startHeartbeat() {
-  // Clear any previous interval
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   heartbeatInterval = setInterval(async () => {
     if (!state.user || !socket?.connected) return;
-    // Re-check friends online status every 30s as fallback
     try {
       const { friends } = await api.getFriends();
-      friends.forEach(f => {
-        const prev = state.friends.find(sf => sf.id === f.id);
-        if (prev && prev.is_online !== f.is_online) {
-          updateFriendOnlineStatus(f.id, f.is_online, f.last_seen);
-        }
-      });
-      state.friends = friends;
+      if (friends && friends.length) {
+        friends.forEach(f => {
+          const prev = state.friends.find(sf => sf.id === f.id);
+          if (prev && prev.is_online !== f.is_online) {
+            updateFriendOnlineStatus(f.id, f.is_online, f.last_seen);
+          }
+        });
+        state.friends = friends;
+      }
     } catch {}
-  }, 30000); // every 30 seconds
+  }, 30000);
 }
 
 // ── Resize handler ────────────────────────────────────────────

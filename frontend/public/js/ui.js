@@ -115,6 +115,25 @@ function safeJsonForOnclick(obj) {
   });
 }
 
+// ── Safe string for onclick JS contexts ───────────────────────
+function onclickStr(s) {
+  if (!s) return "''";
+  return "'" + String(s).replace(/[&<>]/g, function(c) {
+    if (c === '&') return '&amp;';
+    if (c === '<') return '&lt;';
+    if (c === '>') return '&gt;';
+    return c;
+  }).replace(/[\\']/g, '\\$&') + "'";
+}
+
+// ── Hex to RGB (for CSS custom properties) ────────────────────
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16) || 0;
+  const g = parseInt(hex.slice(3,5),16) || 0;
+  const b = parseInt(hex.slice(5,7),16) || 0;
+  return `${r},${g},${b}`;
+}
+
 // ── Escape HTML ───────────────────────────────────────────────
 function esc(s) {
   if (!s) return '';
@@ -143,13 +162,15 @@ function toggleEye(inputId, btn) {
 
 // ── Image viewer ──────────────────────────────────────────────
 function openImgViewer(src) {
-  const d = document.createElement('div');
-  d.className = 'img-viewer';
-  d.onclick = () => d.remove();
-  const img = document.createElement('img');
-  img.src = src;
-  d.appendChild(img);
-  document.body.appendChild(d);
+  const overlay = document.createElement('div');
+  overlay.className = 'img-viewer';
+  overlay.onclick = (e) => { if (e.target === overlay || e.target.classList.contains('img-viewer-close')) overlay.remove(); };
+  overlay.innerHTML = `
+    <button class="img-viewer-close" title="Close"><i class="fa fa-times"></i></button>
+    <img src="${esc(src)}" onclick="event.stopPropagation()" alt="Image">`;
+  document.body.appendChild(overlay);
+  const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); } };
+  document.addEventListener('keydown', escHandler);
 }
 
 // ── View management ───────────────────────────────────────────
@@ -173,7 +194,7 @@ function showView(id) {
   if (bnav) bnav.classList.remove('hidden');
 
   // Mobile sidebar — hide when going to subpages, show on welcome/home
-  const fullscreenViews = ['chat', 'sage', 'admin', 'global', 'announcements', 'settings'];
+  const fullscreenViews = ['chat', 'sage', 'admin', 'global', 'announcements', 'settings', 'help'];
   if (isMobile) {
     if (id === 'welcome') sidebar.classList.remove('hidden-mobile');
     else sidebar.classList.add('hidden-mobile');
@@ -243,11 +264,13 @@ async function openProfile(user) {
         <div class="mutual-chips">${mutual.map(m => `<div class="mutual-chip">${makeAvEl(m,'xs').outerHTML}<span>${esc(m.display_name)}</span></div>`).join('')}</div>
       </div>` : '';
 
+    const bio = user.bio ? esc(user.bio) : '';
     body.innerHTML = `
       <div class="profile-card">
         ${av.outerHTML}
         <div class="pc-name">${esc(user.display_name)}</div>
         <div class="pc-un">@${esc(user.username)}</div>
+        ${bio ? `<div class="pc-bio">${bio}</div>` : ''}
         <div class="pc-pronouns">${esc(user.pronouns || '')}</div>
         ${getRoleBadge(user.role)}
         <div style="font-size:12px;color:${user.is_online ? 'var(--accent)' : 'var(--txt3)'}">

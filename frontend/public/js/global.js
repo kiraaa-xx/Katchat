@@ -80,8 +80,12 @@ function makeGlobalMsgEl(msg) {
   const isOwnerMsg = msg.is_owner_message || sender.role === 'owner';
 
   const row = document.createElement('div');
-  // Key fix: owner-msg only for non-own messages from owner
-  row.className = `msg-row ${isOwn ? 'own' : ''} ${(isOwnerMsg && !isOwn) ? 'owner-msg' : ''} msg-appear`;
+  row.className = `msg-row ${isOwn ? 'own' : ''} ${isOwnerMsg ? 'owner-msg' : ''} msg-appear`;
+  if (isOwnerMsg) {
+    const oc = sender.profile_color || '#ef4444';
+    row.style.setProperty('--owner-color', oc);
+    row.style.setProperty('--owner-color-rgb', hexToRgb(oc));
+  }
   if (msg.id) row.dataset.id = msg.id;
 
   if (msg.deleted) {
@@ -115,7 +119,7 @@ function makeGlobalMsgEl(msg) {
       <div class="msg-meta">
         <span class="msg-time">${fmtTime(msg.created_at)}</span>
         <div class="msg-actions">
-          <button class="mac-btn" onclick="setGlobalReply('${msg.id}','${esc(sender.display_name || '')}','${esc((msg.content||'').substring(0,60))}')" title="Reply"><i class="fa fa-reply"></i></button>
+          <button class="mac-btn" onclick="setGlobalReply('${msg.id}',${onclickStr(sender.display_name || '')},${onclickStr((msg.content||'').substring(0,60))})" title="Reply"><i class="fa fa-reply"></i></button>
           ${!isOwn ? `<button class="mac-btn" onclick="openProfile(${safeJsonForOnclick(sender)})" title="Profile"><i class="fa fa-user"></i></button>` : ''}
           ${canDelete ? `<button class="mac-btn" onclick="deleteGlobalMsg('${msg.id}')" title="Delete" style="color:var(--danger)"><i class="fa fa-trash"></i></button>` : ''}
         </div>

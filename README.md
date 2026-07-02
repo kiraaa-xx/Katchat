@@ -233,6 +233,38 @@ If Sage returns a static message saying "someone forgot to plug me in", the `GRO
 
 Type `/` in global chat to see command suggestions. Type `@` after a command to search users.
 
+## Password Reset Tutorial
+
+### User: Change Your Own Password (Settings)
+
+1. Click **Settings** in the sidebar/bottom nav
+2. Scroll to the **Security** card
+3. Enter your **current password**
+4. Enter a **new password** (minimum 8 characters)
+5. Click **Change Password**
+6. A success toast confirms the change — log out and test the new password
+
+> If you see an error "Current password is incorrect", re-enter your current password carefully (Caps Lock may be on).
+
+### Admin: Reset Another User's Password
+
+1. Open **Admin Panel → Users**
+2. Find the user and click the **key icon** (Reset Password)
+3. Copy the temporary password shown in the modal — share it securely with the user
+4. The user logs in with the temporary password
+5. They are forced to set a new password before entering the app
+6. Once set, they can use the app normally
+
+> Temporary passwords are shown only once. If the admin closes the modal, they must generate a new reset.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| "Current password is incorrect" | Your current password doesn't match the stored one. Use "Forgot password" or ask an admin to reset it. |
+| "Password must be at least 8 characters" | The new password must be 8 or more characters long. |
+| Admin reset doesn't work | Only the **Owner** role can reset passwords. Check your role permissions. |
+
 ## Deployment Notes
 
 ### Deploy on Render

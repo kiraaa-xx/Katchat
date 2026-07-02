@@ -1,0 +1,12 @@
+[
+  {
+    "bugId": "BUG-1",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Medium",
+    "confidenceScore": 100,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Independently verified by reading all three files. state.js:13 uses `let` for `activeFriend`. ECMAScript spec: `let` declarations at the top level of a script create bindings in the global lexical environment, NOT properties on the global object (`window`). index.html:266 references `window.activeFriend` which is always `undefined`. Inline event handlers in HTML are compiled into a function in the global scope, where bare `activeFriend` would correctly resolve to the lexical binding, but `window.activeFriend` does not. ui.js:218 `if (!user) return;` confirms silent failure. The fix is to drop the `window.` prefix — `activeFriend` resolves correctly from the lexical scope.",
+    "suggestedFix": "Change index.html:266 from `onclick=\"openProfile(window.activeFriend)\"` to `onclick=\"openProfile(activeFriend)\"`. The bare name `activeFriend` resolves from the global lexical scope where `let` bindings live."
+  }
+]

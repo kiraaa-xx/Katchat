@@ -53,9 +53,14 @@ function renderSageChatList() {
          onclick="loadSageChat(${safeJsonForOnclick(c)})">
       <div class="sci-title">${esc(c.title || 'Chat')}</div>
       <div class="sci-preview">${esc(c.preview || '...')}</div>
-      <button class="sci-del" onclick="event.stopPropagation();deleteSageChat('${c.id}')">
-        <i class="fa fa-trash"></i>
-      </button>
+      <div class="sci-actions">
+        <button class="sci-rename" onclick="event.stopPropagation();renameSageChat('${c.id}')" title="Rename chat">
+          <i class="fa fa-pen"></i>
+        </button>
+        <button class="sci-del" onclick="event.stopPropagation();deleteSageChat('${c.id}')" title="Delete chat">
+          <i class="fa fa-trash"></i>
+        </button>
+      </div>
     </div>`).join('');
 }
 
@@ -112,7 +117,7 @@ function makeSageMsgEl(m, index) {
 
   // Image inside bubble (if message has an attached image)
   const imageHtml = m.image 
-    ? `<div class="sage-msg-img-wrap"><img src="${esc(m.image)}" class="sage-msg-img" onclick="openImgViewer('${esc(m.image)}')" alt="Attached image" loading="lazy"></div>` 
+    ? `<div class="sage-msg-img-wrap"><img src="${esc(m.image)}" class="sage-msg-img" onclick="openImgViewer(${onclickStr(m.image)})" alt="Attached image" loading="lazy"></div>` 
     : '';
 
   // Action buttons — shown on hover for all messages, but retry only for assistant
@@ -165,6 +170,9 @@ function showSageWelcome() {
       <p>Your bold, witty, and actually helpful AI companion. Ask me anything — no boring answers, I promise.</p>
       <div class="sage-chips">
         <button class="sage-chip" onclick="insertSagePrompt('Tell me everything about Kat Chat')"><i class="fa fa-info-circle"></i> About Kat-Chat</button>
+        <button class="sage-chip" onclick="insertSagePrompt('How do I change my password on KatChat?')"><i class="fa fa-key"></i> Change password</button>
+        <button class="sage-chip" onclick="insertSagePrompt('What are the rules and features of KatChat?')"><i class="fa fa-book"></i> How KatChat works</button>
+        <button class="sage-chip" onclick="insertSagePrompt('How do I contact the owner of KatChat?')"><i class="fa fa-envelope"></i> Contact owner</button>
         <button class="sage-chip" onclick="document.getElementById('sage-img-input').click()"><i class="fa fa-image"></i> Analyze image</button>
         <button class="sage-chip" onclick="insertSagePrompt('Tell me something interesting')"><i class="fa fa-lightbulb"></i> Inspire me</button>
       </div>
@@ -529,6 +537,26 @@ async function newSageChat() {
   if (inp) inp.focus();
 }
 window.newSageChat = newSageChat;
+
+async function renameSageChat(chatId) {
+  const chat = sageChats.find(c => c.id === chatId);
+  if (!chat) return;
+  const newTitle = prompt('Rename chat:', chat.title || 'Chat');
+  if (!newTitle || newTitle.trim() === (chat.title || 'Chat')) return;
+  const trimmed = newTitle.trim().substring(0, 50);
+  try {
+    chat.title = trimmed;
+    await api.saveSageChat(chat);
+    renderSageChatList();
+    if (activeSageChatId === chatId && activeSageChatObj) {
+      activeSageChatObj.title = trimmed;
+    }
+    showToast('Chat renamed', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+window.renameSageChat = renameSageChat;
 
 async function deleteSageChat(chatId) {
   try {

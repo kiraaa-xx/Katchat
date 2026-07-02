@@ -20,7 +20,15 @@ module.exports = (io) => {
     const uid = socket.user.id;
     onlineUsers.set(uid, socket.id);
     const { data: freshUser } = await supabase.from('users').select('*').eq('id', uid).single();
-    if (freshUser) socket.user = freshUser;
+    if (freshUser) {
+      socket.user = freshUser;
+      // Auto-unban if temp ban expired
+      if (freshUser.is_banned_from_global && freshUser.temp_ban_until && new Date(freshUser.temp_ban_until) < new Date()) {
+        await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null, temp_ban_until: null }).eq('id', uid);
+        socket.user.is_banned_from_global = false;
+        socket.emit('unbanned_from_global');
+      }
+    }
     await supabase.from('users').update({ is_online: true, last_seen: new Date().toISOString() }).eq('id', uid);
     io.emit('user_status', { userId: uid, isOnline: true });
     // Broadcast updated online count
@@ -62,7 +70,7 @@ module.exports = (io) => {
         if (roleData?.permissions?.canUseCommands && content.startsWith('/')) { await handleCommand(socket, io, content, onlineUsers); return; }
         const isOwner = userRole === 'owner';
         const { data: message } = await supabase.from('messages').insert({ sender_id: uid, content, type: 'global', reply_to: replyTo || null, mentions: mentions || [], is_owner_message: isOwner }).select().single();
-        const { data: sender } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role').eq('id', uid).single();
+        const { data: sender } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,bio').eq('id', uid).single();
         let replyData = null;
         if (replyTo) { const { data: r } = await supabase.from('messages').select('id,content,sender_id').eq('id', replyTo).single(); replyData = r; }
         io.to('global').emit('new_global_message', { ...message, sender, reply_to_msg: replyData });
@@ -83,7 +91,17 @@ module.exports = (io) => {
 
     socket.on('typing_start', ({ recipientId }) => { const s = onlineUsers.get(recipientId); if (s) io.to(s).emit('typing_start', { userId: uid }); });
     socket.on('typing_stop', ({ recipientId }) => { const s = onlineUsers.get(recipientId); if (s) io.to(s).emit('typing_stop', { userId: uid }); });
-    socket.on('message_read', async ({ conversationId, senderId }) => { const s = onlineUsers.get(senderId); if (s) io.to(s).emit('messages_read', { conversationId, readerId: uid }); });
+    socket.on('message_read', async ({ conversationId, senderId }) => {
+      const s = onlineUsers.get(senderId); if (s) io.to(s).emit('messages_read', { conversationId, readerId: uid });
+      try {
+        const { data: unread } = await supabase.from('messages')
+          .select('id,read_by').eq('conversation_id', conversationId).neq('sender_id', uid);
+        for (const m of unread || []) {
+          const arr = m.read_by || [];
+          if (!arr.includes(uid)) { arr.push(uid); await supabase.from('messages').update({ read_by: arr }).eq('id', m.id); }
+        }
+      } catch (_) {}
+    });
     socket.on('notify_friend_request', ({ recipientId, from }) => { const s = onlineUsers.get(recipientId); if (s) io.to(s).emit('friend_request_received', { from }); });
 
     socket.on('admin_ban_user', async ({ userId, reason }) => {
@@ -134,3 +152,4 @@ async function handleCommand(socket, io, content, onlineUsers) {
     io.to('global').emit('new_global_message', { id: `sys_${Date.now()}`, content: `✅ ${socket.user.display_name} has unbanned @${targetUser.username}`, type: 'global', isSystem: true, created_at: new Date() });
   } else { socket.emit('error', { message: `Unknown command: ${cmd}` }); }
 }
+module.exports.onlineUsers = onlineUsers;

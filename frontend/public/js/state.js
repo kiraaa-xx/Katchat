@@ -20,4 +20,4 @@ let editingAnnId = null;
 let editingRoleName = null;
 let sageImageBase64 = null;
 let sageImageMime = null;
-let mentionIndex = -1;
+

@@ -36,7 +36,7 @@ if (window.__katchat_bindings_loaded__) {
     // Announcements
     'openAnnouncements', 'openAnnModal', 'submitAnnouncement', 'deleteAnn',
     'toggleComments', 'loadComments', 'submitComment', 'deleteComment',
-    'previewAnnImg',
+    'previewAnnImg', 'commentKey', 'openAnnImageViewer',
     
     // Sage
     'openSage', 'sendSage', 'sageKey', 'handleSageImg', 'clearSageImg',
@@ -45,19 +45,22 @@ if (window.__katchat_bindings_loaded__) {
     
     // Settings
     'openSettings', 'saveProfile', 'changePassword', 'toggleTheme',
-    'handleAvatarUpload', 'toggleAbout', 'confirmLogout',
+    'handleAvatarUpload', 'applyAvatarCrop', 'setAvCropZoom', 'toggleAbout', 'confirmLogout',
     
     // Admin
-    'navTo', 'openBanDialog', 'changeUserRole', 'adminBan', 'adminUnban',
+    'openAdmin', 'openBanDialog', 'changeUserRole', 'adminBan', 'adminUnban',
     'resetUserPassword', 'copyToClipboard', 'filterAdminUsers', 'loadAdminUsers',
-    'loadAdminRoles', 'openRoleModal', 'previewRoleIcon', 'setIcon',
+    'loadAdminRoles', 'openRoleModal', 'previewRoleIcon', 'setIcon', 'setRoleColor',
     'submitRole', 'deleteRole', 'syncColorFromHex', 'loadAdminBans',
-    'loadAdminPosts', 'filterAdminUsers',
+    'loadAdminPosts',
     
     // UI
     'showToast', 'openModal', 'closeModal', 'overlayClick', 'showConfirm',
     'scrollToBottom', 'autoResize', 'filterChats', 'clearSearch',
     'updateTopbarAv', 'initApp', 'playIntro', 'enterApp',
+    
+    // Help
+    'openHelp', 'toggleHelpSection', 'toggleFaqItem', 'loadWelcomeAnnouncements',
   ];
 
   /**
@@ -198,7 +201,7 @@ if (window.__katchat_bindings_loaded__) {
       'admin-posts-list', 'at-users', 'at-roles', 'at-bans', 'at-posts',
       
       // Settings
-      'settings-av', 'settings-hero', 'set-name', 'set-gender', 'set-curr-pw',
+      'settings-av', 'set-name', 'set-gender', 'set-curr-pw',
       'set-new-pw', 'av-upload', 'theme-toggle', 'admin-card',
       
       // Modals
@@ -261,20 +264,17 @@ if (window.__katchat_bindings_loaded__) {
 
   /**
    * Auto-run validation on app startup
+   * Run as separate DOMContentLoaded listener so it fires BEFORE initApp
+   * (bindings.js loads before app.js, so this listener registers first)
    */
-  const origInitApp = window.initApp;
-  if (typeof origInitApp === 'function') {
-    window.initApp = function() {
-      console.log('🔧 KatChat initializing...');
-      const validation = runValidation();
-      
-      if (!validation.overall) {
-        console.warn('⚠️ Starting with validation warnings - some features may not work');
-      }
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 KatChat initializing...');
+    const validation = runValidation();
 
-      return origInitApp.apply(this, arguments);
-    };
-  }
+    if (!validation.overall) {
+      console.warn('⚠️ Starting with validation warnings - some features may not work');
+    }
+  });
 
   console.log('✅ Function bindings & validation system loaded');
 }

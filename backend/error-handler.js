@@ -191,7 +191,7 @@ const validateUsername = (username) => {
  * Validate max length for text fields — returns error string or null
  */
 const validateMaxLength = (obj, fields) => {
-  const defaults = { displayName: 50, username: 20, email: 254, password: 128, gender: 20, theme: 20, content: 5000, title: 200, role: 50 };
+  const defaults = { displayName: 50, username: 20, email: 254, password: 128, gender: 20, theme: 20, content: 5000, title: 200, role: 50, bio: 200 };
   for (const [key, maxLen] of Object.entries(fields)) {
     const limit = defaults[key] || maxLen;
     if (obj[key] && obj[key].length > limit) {
@@ -284,9 +284,15 @@ class RateLimiter {
   }
 }
 
-const rateLimiter = new RateLimiter(60000, 100); // 100 requests per minute
+const rateLimiter = new RateLimiter(60000, 300); // 300 requests per minute
+
+const RATE_LIMITED_PREFIXES = ['/api/', '/health'];
 
 const checkRateLimit = (req, res, next) => {
+  if (!RATE_LIMITED_PREFIXES.some(p => req.url.startsWith(p))) {
+    return next();
+  }
+
   const key = req.ip;
   if (!rateLimiter.isAllowed(key)) {
     errorLogger.log(

@@ -185,11 +185,36 @@
     padding: 10px;
     gap: 10px;
   }
+  .ann-card {
+    flex-direction: column;
+  }
   .ann-card-body {
     padding: 14px;
   }
+  .ann-card-img-wrap {
+    width: 100%;
+    height: 200px;
+  }
+  .ann-card-img-wrap .ann-card-img {
+    position: relative;
+    height: 200px;
+  }
   .ann-card-title {
     font-size: 16px;
+  }
+
+  /* ── Help Center ── */
+  .help-hero {
+    padding: 20px 14px;
+  }
+  .help-hero-icon {
+    font-size: 32px;
+  }
+  .help-hero-title {
+    font-size: 18px;
+  }
+  .help-section-body-inner {
+    font-size: 13px;
   }
 
   /* ── Admin ── */

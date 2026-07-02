@@ -1,0 +1,35 @@
+{
+  "version": "3.0.0",
+  "scan_id": "scan-2026-06-21-inline-handlers",
+  "scan_date": "2026-06-21",
+  "mode": "parallel",
+  "target": "C:\\Users\\Asus\\Downloads\\katchat",
+  "files_scanned": 3,
+  "threat_model_loaded": false,
+  "confirmed": [
+    {
+      "id": "BUG-1",
+      "severity": "Medium",
+      "category": "logic",
+      "stride": "N/A",
+      "cwe": "N/A",
+      "file": "frontend/public/index.html",
+      "lines": "266",
+      "claim": "`window.activeFriend` is always undefined — `activeFriend` is a `let` binding in state.js:13, not a `window` property. The profile button silently does nothing.",
+      "evidence": "state.js:13 `let activeFriend = null;` creates global lexical binding (no window prop). index.html:266 `onclick=\"openProfile(window.activeFriend)\"` — window.activeFriend is always undefined. ui.js:218 `if (!user) return;` — silent early return.",
+      "reachability": "AUTHENTICATED",
+      "exploitability": "EASY",
+      "poc": {}
+    }
+  ],
+  "dismissed": [],
+  "dependencies": [],
+  "summary": {
+    "total_reported": 1,
+    "confirmed": 1,
+    "dismissed": 0,
+    "by_severity": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 0 },
+    "by_stride": { "N/A": 1 },
+    "by_category": { "logic": 1 }
+  }
+}

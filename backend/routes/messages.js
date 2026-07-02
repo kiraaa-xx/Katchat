@@ -26,7 +26,7 @@ const enrichMessages = async (messages) => {
   if (!messages?.length) return [];
   const senderIds = [...new Set(messages.map(m => m.sender_id))];
   const { data: users } = await supabase.from('users')
-    .select('id,display_name,username,profile_picture,profile_color,role').in('id', senderIds);
+    .select('id,display_name,username,profile_picture,profile_color,role,bio').in('id', senderIds);
   const userMap = {};
   (users || []).forEach(u => userMap[u.id] = u);
 
@@ -116,6 +116,13 @@ router.post('/private/:userId', auth, upload.array('images', 5), async (req, res
       reply_to: replyTo || null
     }).select().single();
     const enriched = await enrichMessages([message]);
+    // Emit socket event so receiver gets the image in real-time
+    try {
+      const io = req.app.get('io');
+      const { onlineUsers } = require('../socket');
+      const recipientSocket = onlineUsers.get(req.params.userId);
+      if (recipientSocket) io.to(recipientSocket).emit('new_private_message', enriched[0]);
+    } catch (_) { /* best-effort socket notification */ }
     res.json({ message: enriched[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

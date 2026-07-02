@@ -91,9 +91,17 @@ function initSocket(token) {
   socket.on('message_deleted', ({ messageId }) => {
     const el = document.querySelector(`[data-id="${messageId}"]`);
     if (el) {
+      const av = el.querySelector('.av');
       const bubble = el.querySelector('.bubble');
-      if (bubble) { bubble.className = 'bubble deleted'; bubble.innerHTML = '<i class="fa fa-ban"></i> Message deleted'; }
+      if (bubble) {
+        bubble.className = 'bubble deleted';
+        bubble.innerHTML = '<i class="fa fa-ban"></i> Message deleted';
+      }
+      el.querySelector('.msg-imgs')?.remove();
       el.querySelector('.msg-actions')?.remove();
+      el.querySelector('.reply-quote')?.remove();
+      el.querySelector('.sender-lbl')?.remove();
+      if (av) av.remove();
     }
   });
 
@@ -108,9 +116,12 @@ function initSocket(token) {
   });
 
   socket.on('messages_read', ({ conversationId }) => {
-    document.querySelectorAll('#priv-msgs .msg-row.own .msg-read').forEach(s => {
-      s.innerHTML = '<i class="fa fa-check-double" style="color:var(--accent)"></i>';
-    });
+    const currentConvId = activeFriend ? [state.user.id, activeFriend.id].sort().join('_') : null;
+    if (conversationId === currentConvId) {
+      document.querySelectorAll('#priv-msgs .msg-row.own .msg-read').forEach(s => {
+        s.innerHTML = '<i class="fa fa-check-double" style="color:var(--accent)"></i>';
+      });
+    }
   });
 
   socket.on('friend_request_received', ({ from }) => {
