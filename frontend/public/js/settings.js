@@ -1,3 +1,61 @@
+const ACCENT_THEMES = {
+  cyan:    { h: 192, s: 72, l: 45, label: 'Cyan', emoji: '🩵' },
+  emerald: { h: 156, s: 74, l: 42, label: 'Emerald', emoji: '🌲' },
+  blue:    { h: 210, s: 80, l: 52, label: 'Blue', emoji: '🔵' },
+  purple:  { h: 275, s: 72, l: 56, label: 'Purple', emoji: '🟣' },
+  pink:    { h: 330, s: 75, l: 58, label: 'Pink', emoji: '🌸' },
+  red:     { h: 0,   s: 78, l: 56, label: 'Red', emoji: '❤️' },
+  orange:  { h: 28,  s: 77, l: 48, label: 'Orange', emoji: '🟧' },
+};
+
+function renderAccentColors() {
+  const grid = document.getElementById('accent-grid');
+  if (!grid || grid.dataset.rendered) return;
+  grid.dataset.rendered = '1';
+  const current = state.user?.accent_color || localStorage.getItem('kc_accent') || 'cyan';
+  Object.keys(ACCENT_THEMES).forEach(key => {
+    const t = ACCENT_THEMES[key];
+    const card = document.createElement('button');
+    card.className = 'accent-card' + (key === current ? ' selected' : '');
+    card.dataset.accent = key;
+    card.setAttribute('aria-label', t.label);
+    card.setAttribute('title', t.label);
+    card.innerHTML = '<span class="accent-swatch" style="--swatch-h:' + t.h + ';--swatch-s:' + t.s + '%;--swatch-l:' + t.l + '%"></span><span class="accent-label">' + t.emoji + ' ' + t.label + '</span><span class="accent-check"><i class="fa fa-check"></i></span>';
+    card.onclick = function () { applyAccentColor(key); };
+    grid.appendChild(card);
+  });
+}
+
+function applyAccentColor(key) {
+  const theme = ACCENT_THEMES[key];
+  if (!theme) return;
+  const root = document.documentElement;
+  root.classList.add('accent-transitioning');
+  clearTimeout(root._accentTimer);
+  root._accentTimer = setTimeout(function () { root.classList.remove('accent-transitioning'); }, 300);
+  root.style.setProperty('--accent-h', theme.h);
+  root.style.setProperty('--accent-s', theme.s + '%');
+  root.style.setProperty('--accent-l', theme.l + '%');
+  localStorage.setItem('kc_accent', key);
+  if (state.user) {
+    state.user.accent_color = key;
+    api.updateProfile({ accentColor: key }).catch(function () {});
+  }
+  document.querySelectorAll('.accent-card').forEach(function (el) {
+    el.classList.toggle('selected', el.dataset.accent === key);
+  });
+}
+
+function initAccentColor() {
+  const key = state.user?.accent_color || localStorage.getItem('kc_accent') || 'cyan';
+  const theme = ACCENT_THEMES[key];
+  if (!theme) return;
+  const root = document.documentElement;
+  root.style.setProperty('--accent-h', theme.h);
+  root.style.setProperty('--accent-s', theme.s + '%');
+  root.style.setProperty('--accent-l', theme.l + '%');
+}
+
 function openSettings() {
   showView('settings');
   const u = state.user;
@@ -18,6 +76,7 @@ function openSettings() {
   document.getElementById('fast-mode-toggle').checked = localStorage.getItem('kc_fast_mode') === '1';
   const isAdmin = state.roles.find(r => r.name === u.role)?.permissions?.canAccessAdminPanel;
   document.getElementById('admin-card').classList.toggle('hidden', !isAdmin);
+  renderAccentColors();
 }
 
 async function saveProfile() {
@@ -105,7 +164,8 @@ function fitAvatarCrop() {
   requestAnimationFrame(initAvCropDrag);
 }
 
-let _avCropDragging = false, _avCropStartX = 0, _avCropStartY = 0;
+let _avCropDragging = false, _avCropStartX = 0, _avCropStartY = 0, _avCropRafId = null;
+let _avCropPinch = null;
 function initAvCropDrag() {
   const vp = document.getElementById('av-crop-viewport');
   if (!vp || vp._avDragInit) return;
@@ -116,22 +176,105 @@ function initAvCropDrag() {
     _avCropStartY = y - _avCropY;
     vp.style.cursor = 'grabbing';
   };
+  const batchMove = function () {
+    _avCropRafId = null;
+    applyAvCropTransform();
+  };
   const onMove = function (x, y) {
     if (!_avCropDragging) return;
     _avCropX = x - _avCropStartX;
     _avCropY = y - _avCropStartY;
+    if (!_avCropRafId) _avCropRafId = requestAnimationFrame(batchMove);
+  };
+  const clampPos = function () {
+    const vpSize = vp.offsetWidth;
+    const img = document.getElementById('av-crop-img');
+    const natW = img.naturalWidth, natH = img.naturalHeight;
+    const Z = _avCropZoom;
+    const maxOffset = vpSize * 0.5;
+    const limitX = Math.max(maxOffset, (natW * Z - vpSize) * 0.5);
+    const limitY = Math.max(maxOffset, (natH * Z - vpSize) * 0.5);
+    _avCropX = Math.max(-limitX, Math.min(limitX, _avCropX));
+    _avCropY = Math.max(-limitY, Math.min(limitY, _avCropY));
     applyAvCropTransform();
   };
   const onEnd = function () {
+    if (_avCropRafId) { cancelAnimationFrame(_avCropRafId); _avCropRafId = null; }
     _avCropDragging = false;
     vp.style.cursor = 'grab';
+    clampPos();
   };
   vp.addEventListener('mousedown', function (e) { onStart(e.clientX, e.clientY); });
   window.addEventListener('mousemove', function (e) { onMove(e.clientX, e.clientY); });
   window.addEventListener('mouseup', onEnd);
-  vp.addEventListener('touchstart', function (e) { const t = e.touches[0]; onStart(t.clientX, t.clientY); }, { passive: true });
-  vp.addEventListener('touchmove', function (e) { const t = e.touches[0]; onMove(t.clientX, t.clientY); }, { passive: true });
-  vp.addEventListener('touchend', onEnd, { passive: true });
+  vp.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 1) {
+      onStart(e.touches[0].clientX, e.touches[0].clientY);
+    } else if (e.touches.length === 2) {
+      if (_avCropRafId) { cancelAnimationFrame(_avCropRafId); _avCropRafId = null; }
+      _avCropDragging = false;
+      const t1 = e.touches[0], t2 = e.touches[1];
+      _avCropPinch = {
+        initialDist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+        initialZoom: _avCropZoom
+      };
+    }
+  }, { passive: true });
+  vp.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 2 && _avCropPinch) {
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const newZoom = Math.max(0.1, Math.min(5, _avCropPinch.initialZoom * (dist / _avCropPinch.initialDist)));
+      if (newZoom !== _avCropZoom) {
+        const img = document.getElementById('av-crop-img');
+        const ox = img.naturalWidth / 2, oy = img.naturalHeight / 2;
+        const rect = vp.getBoundingClientRect();
+        const mx = (t1.clientX + t2.clientX) / 2 - rect.left;
+        const my = (t1.clientY + t2.clientY) / 2 - rect.top;
+        const Z_old = _avCropZoom, Z_new = newZoom;
+        const inv = (Z_old - Z_new) / (Z_old * Z_new);
+        _avCropX += (mx - ox) * inv;
+        _avCropY += (my - oy) * inv;
+        _avCropZoom = newZoom;
+        document.getElementById('av-crop-zoom').value = newZoom;
+        applyAvCropTransform();
+      }
+    } else if (e.touches.length === 1 && _avCropDragging) {
+      onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+  vp.addEventListener('touchend', function (e) {
+    if (e.touches.length === 0) {
+      _avCropPinch = null;
+      onEnd();
+    } else if (e.touches.length === 1 && _avCropPinch) {
+      _avCropPinch = null;
+      if (_avCropRafId) { cancelAnimationFrame(_avCropRafId); _avCropRafId = null; }
+      _avCropDragging = false;
+      onStart(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+  vp.addEventListener('wheel', function (e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const delta = -e.deltaY;
+    const factor = delta > 0 ? 1.05 : 0.95;
+    const newZoom = Math.max(0.1, Math.min(5, _avCropZoom * factor));
+    if (newZoom !== _avCropZoom) {
+      const img = document.getElementById('av-crop-img');
+      const ox = img.naturalWidth / 2, oy = img.naturalHeight / 2;
+      const rect = vp.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const Z_old = _avCropZoom, Z_new = newZoom;
+      const inv = (Z_old - Z_new) / (Z_old * Z_new);
+      _avCropX += (mx - ox) * inv;
+      _avCropY += (my - oy) * inv;
+      _avCropZoom = newZoom;
+      document.getElementById('av-crop-zoom').value = newZoom;
+      applyAvCropTransform();
+    }
+  }, { passive: false });
 }
 
 function applyAvCropTransform() {
@@ -185,6 +328,8 @@ window.toggleFastMode = toggleFastMode;
 window.handleAvatarUpload = handleAvatarUpload;
 window.applyAvatarCrop = applyAvatarCrop;
 window.setAvCropZoom = setAvCropZoom;
+window.applyAccentColor = applyAccentColor;
+window.initAccentColor = initAccentColor;
 
 function updateBioCount() {
   const val = document.getElementById('set-bio')?.value || '';

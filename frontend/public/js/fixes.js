@@ -281,9 +281,6 @@ if (window.__katchat_fixes_loaded__) {
       input.value = '';
       input.style.height = 'auto';
       hideMentionDropdown();
-      if (typeof cancelGlobalReply === 'function') {
-        cancelGlobalReply();
-      }
       if (typeof socket !== 'undefined' && socket) {
         const mentions = [];
         const allGlobalUsers = window.allGlobalUsers || [];
@@ -296,6 +293,9 @@ if (window.__katchat_fixes_loaded__) {
           replyTo: window.globalReplyToMsg?.id || null, 
           mentions 
         });
+      }
+      if (typeof cancelGlobalReply === 'function') {
+        cancelGlobalReply();
       }
     } catch (err) {
       logError('sendGlobal', err);

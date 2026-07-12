@@ -146,7 +146,7 @@ async function sendGlobal() {
   const content = input.value.trim();
   if (!content) return;
   input.value = ''; input.style.height = 'auto';
-  hideMentionDropdown(); cancelGlobalReply();
+  hideMentionDropdown();
   if (socket) {
     const mentions = [];
     (content.match(/@(\w+)/g) || []).forEach(m => {
@@ -155,6 +155,7 @@ async function sendGlobal() {
     });
     socket.emit('send_global_message', { content, replyTo: globalReplyToMsg?.id || null, mentions });
   }
+  cancelGlobalReply();
 }
 
 function globalKey(e) {

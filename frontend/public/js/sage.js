@@ -236,6 +236,96 @@ async function incrementImageUploadCount() {
   }
 }
 
+function generateChatTitle(text) {
+  if (!text) return 'New Chat';
+  const t = text.trim();
+  const lower = t.toLowerCase();
+
+  // Single word: map common greetings/simple inputs to contextual titles
+  if (!t.includes(' ') && t.length <= 20) {
+    const map = {
+      'hi':'Greetings','hello':'Greetings','hey':'Greetings','yo':'Greetings',
+      'sup':'Greetings','howdy':'Greetings','hiya':'Greetings','heyo':'Greetings',
+      'bye':'Farewell','goodbye':'Farewell','cya':'Farewell','later':'Farewell',
+      'thanks':'Thanks','ty':'Thanks','thankyou':'Thanks','thx':'Thanks',
+      'ok':'OK','okay':'OK','k':'OK','kk':'OK','lol':'Fun Chat','lmao':'Fun Chat',
+      'nice':'Nice','cool':'Cool','wow':'Wow','omg':'Wow',
+      'help':'Help Request','test':'Testing','yes':'Affirmative','no':'Negative',
+      'maybe':'Maybe','sure':'Sure','idk':'Not Sure','random':'Random Chat',
+      'hmm':'Thinking','huh':'Curiosity','really':'Curiosity',
+    };
+    if (map[lower]) return map[lower];
+  }
+
+  // Step 1: Strip leading question/command prefixes to expose the core topic
+  const prefixes = [
+    /^(?:can|could|would|will|do|does)\s+(?:you\s+)?(?:please\s+)?(?:help\s+(?:me\s+)?(?:with\s+)?)?/i,
+    /^(?:what|where|when|why|how|who)\s+(?:is|are|was|were|does|do|can|would|should|will|did)\s+/i,
+    /^how\s+to\s+/i,
+    /^(?:what|where|when|why|how|who)\s+/i,
+    /^(?:explain|describe|define)\s+/i,
+    /^tell\s+(?:me\s+)?(?:about\s+|more\s+(?:about\s+)?)?/i,
+    /^help\s+(?:me\s+)?(?:with\s+)?(?:to\s+)?/i,
+    /^(?:i\s+)?(?:want|need|would\s+like)\s+(?:to\s+|help\s+(?:with\s+)?)?/i,
+    /^show\s+(?:me\s+)?/i,
+    /^give\s+(?:me\s+)?/i,
+    /^write\s+(?:me\s+)?(?:a|an|the)\s+/i,
+    /^make\s+(?:me\s+)?(?:a|an|the)\s+/i,
+    /^create\s+(?:a|an|the)\s+/i,
+  ];
+
+  let core = t;
+  for (const p of prefixes) {
+    const stripped = core.replace(p, '').trim();
+    if (stripped && stripped.length < core.length) { core = stripped; break; }
+  }
+
+  // Step 2: Strip leading articles
+  core = core.replace(/^(?:a|an|the)\s+/i, '').trim();
+
+  // Step 3: Remove trailing punctuation
+  core = core.replace(/[?!.,;:]+$/, '').trim();
+
+  // Step 4: If we have a meaningful core, clean and return it
+  if (core && core.length >= 3) {
+    // Capitalize first letter
+    let title = core.charAt(0).toUpperCase() + core.slice(1);
+    // Truncate at 42 chars on word boundary
+    if (title.length > 42) {
+      const brk = title.lastIndexOf(' ', 42);
+      if (brk > 12) title = title.substring(0, brk);
+      else title = title.substring(0, 42);
+      title = title.replace(/[,;:\s]+$/, '');
+    }
+    return title;
+  }
+
+  // Step 5: Fallback — extract 2-4 meaningful words skipping stop words
+  const words = t.split(/\s+/).filter(w => w.length > 0);
+  const stopWords = new Set([
+    'a','an','the','is','are','was','were','to','of','in','for','on','with',
+    'at','by','from','and','or','but','can','do','does','did','has','have',
+    'had','will','would','could','should','may','might','am','be','been',
+    'being','it','its','that','this','these','those','i','my','me','we',
+    'our','you','your','he','she','they','him','his','her','them','their',
+    'what','which','who','whom','how','when','where','why','if','then',
+    'else','not','no','nor','just','also','very','too','so','up','out',
+    'about','into','over','after','before','between','under','again',
+    'further','once','here','there','all','each','every','both','few',
+    'more','most','other','some','such','only','own','same','please',
+  ]);
+
+  let start = 0;
+  while (start < words.length && stopWords.has(words[start].toLowerCase())) start++;
+  const contentWords = words.slice(start, start + 4);
+  if (contentWords.length >= 2) {
+    return (contentWords[0].charAt(0).toUpperCase()+contentWords[0].slice(1)+' '+contentWords.slice(1).join(' ')).substring(0, 50);
+  }
+
+  // Ultimate fallback: first 4 words
+  return (words[0]?.charAt(0)?.toUpperCase()+words[0]?.slice(1)||'')+(words.length > 1 ? ' '+words.slice(1,4).join(' ') : '').substring(0, 50) || 'New Chat';
+}
+
 async function sendSage() {
   const input = document.getElementById('sage-input');
   const content = input.value.trim();
@@ -333,11 +423,10 @@ async function sendSage() {
       };
       await api.saveSageChat(activeSageChatObj);
     } else {
-      // Create new chat
-      const title = sageMessages[0]?.content?.substring(0, 50) || 'New Chat';
+      // Create new chat with placeholder title
       const chat = {
         id: Date.now().toString(),
-        title,
+        title: 'New Chat',
         preview: sageMessages[sageMessages.length - 2]?.content?.substring(0, 50) || '',
         messages: sageMessages,
         created_at: new Date().toISOString(),
@@ -348,6 +437,8 @@ async function sendSage() {
       await api.saveSageChat(chat);
       sageChats.push(chat);
       renderSageChatList();
+      // Generate AI title (fire-and-forget after first reply)
+      generateSageTitleForChat(chat, sageMessages[0]?.content || '', reply);
     }
 
     document.getElementById('sage-status').textContent =
@@ -363,6 +454,20 @@ async function sendSage() {
   }
 }
 window.sendSage = sendSage;
+
+// ── AI title generation ──────────────────────────────────────
+async function generateSageTitleForChat(chat, userMessage, assistantReply) {
+  if (!chat || chat.title && chat.title !== 'New Chat') return;
+  try {
+    const { title } = await api.generateSageTitle(userMessage, assistantReply);
+    if (title && title.length >= 2 && title.length <= 60) {
+      chat.title = title;
+      if (activeSageChatObj?.id === chat.id) activeSageChatObj.title = title;
+      await api.saveSageChat(chat);
+      renderSageChatList();
+    }
+  } catch (_) { /* keep 'New Chat' on failure */ }
+}
 
 // Delete a Sage message and its paired response
 async function deleteSageMessage(index) {

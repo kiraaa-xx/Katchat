@@ -161,16 +161,89 @@ function toggleEye(inputId, btn) {
 }
 
 // ── Image viewer ──────────────────────────────────────────────
-function openImgViewer(src) {
+function openImgViewer(images, index) {
+  if (!images) return;
+  const urls = Array.isArray(images) ? images : [images];
+  const idx = (typeof index === 'number' ? index : 0);
+  const total = urls.length;
+
   const overlay = document.createElement('div');
   overlay.className = 'img-viewer';
-  overlay.onclick = (e) => { if (e.target === overlay || e.target.classList.contains('img-viewer-close')) overlay.remove(); };
   overlay.innerHTML = `
-    <button class="img-viewer-close" title="Close"><i class="fa fa-times"></i></button>
-    <img src="${esc(src)}" onclick="event.stopPropagation()" alt="Image">`;
+    <button class="img-viewer-close" title="Close (Esc)"><i class="fa fa-times"></i></button>
+    <div class="img-viewer-nav">
+      <button class="iv-nav-btn iv-prev" title="Previous (←)"><i class="fa fa-chevron-left"></i></button>
+      <div class="iv-main">
+        <img src="${esc(urls[idx])}" alt="Image" class="iv-img">
+        <button class="iv-dl-btn" title="Download"><i class="fa fa-download"></i></button>
+      </div>
+      <button class="iv-nav-btn iv-next" title="Next (→)"><i class="fa fa-chevron-right"></i></button>
+    </div>
+    ${total > 1 ? `<div class="iv-counter"><span class="iv-cur">${idx+1}</span> / ${total}</div>` : ''}`;
+
   document.body.appendChild(overlay);
-  const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); } };
-  document.addEventListener('keydown', escHandler);
+
+  const imgEl = overlay.querySelector('.iv-img');
+  const prevBtn = overlay.querySelector('.iv-prev');
+  const nextBtn = overlay.querySelector('.iv-next');
+  const counterEl = overlay.querySelector('.iv-cur');
+  const dlBtn = overlay.querySelector('.iv-dl-btn');
+
+  function showImage(i) {
+    const newIdx = (i + total) % total;
+    imgEl.style.opacity = '0';
+    setTimeout(function() {
+      imgEl.src = esc(urls[newIdx]);
+      imgEl.style.opacity = '1';
+    }, 120);
+    if (prevBtn) prevBtn.style.display = total > 1 ? '' : 'none';
+    if (nextBtn) nextBtn.style.display = total > 1 ? '' : 'none';
+    if (counterEl) counterEl.textContent = newIdx + 1;
+    return newIdx;
+  }
+
+  let currentIdx = idx;
+  prevBtn?.addEventListener('click', function(e) { e.stopPropagation(); currentIdx = showImage(currentIdx - 1); });
+  nextBtn?.addEventListener('click', function(e) { e.stopPropagation(); currentIdx = showImage(currentIdx + 1); });
+
+  dlBtn?.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const a = document.createElement('a');
+    a.href = urls[currentIdx];
+    a.download = urls[currentIdx].split('/').pop() || 'image.jpg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay || e.target.closest('.img-viewer-close')) overlay.remove();
+  });
+
+  // Keyboard nav
+  const keyHandler = function(e) {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', keyHandler); }
+    if (total > 1) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); currentIdx = showImage(currentIdx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); currentIdx = showImage(currentIdx + 1); }
+    }
+  };
+  document.addEventListener('keydown', keyHandler);
+
+  // Touch swipe for mobile
+  let touchStartX = 0;
+  overlay.addEventListener('touchstart', function(e) { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+  overlay.addEventListener('touchend', function(e) {
+    const delta = e.changedTouches[0].screenX - touchStartX;
+    if (Math.abs(delta) > 50 && total > 1) {
+      if (delta < 0) currentIdx = showImage(currentIdx + 1);
+      else currentIdx = showImage(currentIdx - 1);
+    }
+  }, { passive: true });
+
+  // Fade-in the image
+  void imgEl.offsetWidth;
+  imgEl.style.transition = 'opacity .15s ease';
 }
 
 // ── View management ───────────────────────────────────────────
@@ -258,11 +331,21 @@ async function openProfile(user) {
       actionBtns = `<button class="btn-secondary" onclick="doSendFriendReq('${user.id}')"><i class="fa fa-user-plus"></i> Add Friend</button>`;
     }
 
-    const mutualHtml = mutual?.length ? `
-      <div class="mutual-section">
-        <h4 class="section-label">Mutual Friends</h4>
-        <div class="mutual-chips">${mutual.map(m => `<div class="mutual-chip">${makeAvEl(m,'xs').outerHTML}<span>${esc(m.display_name)}</span></div>`).join('')}</div>
-      </div>` : '';
+    const mutualHtml = mutual?.length ? (() => {
+      const MAX = 5;
+      const chips = mutual.map(m => `<div class="mutual-chip">${makeAvEl(m,'xs').outerHTML}<span>${esc(m.display_name)}</span></div>`);
+      const visible = chips.slice(0, MAX);
+      const remaining = chips.slice(MAX);
+      const extra = remaining.length;
+      return `
+        <div class="mutual-section">
+          <h4 class="section-label">Mutual Friends</h4>
+          <div class="mutual-chips">${visible.join('')}</div>
+          ${extra ? `
+            <div class="mutual-chips-full" hidden>${remaining.join('')}</div>
+            <button class="mutual-see-more" onclick="var n=this.nextElementSibling;if(!n||!n.classList.contains('mutual-chips-full')){n=this.previousElementSibling};n.hidden=!n.hidden;this.textContent=n.hidden?'See all ('+this.dataset.extra+' more)':'Show less'">See all (${extra} more)</button>` : ''}
+        </div>`;
+    })() : '';
 
     const bio = user.bio ? esc(user.bio) : '';
     body.innerHTML = `

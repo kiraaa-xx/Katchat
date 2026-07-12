@@ -1,25 +1,25 @@
 /* ===== INTRO ===== */
 #intro-screen{position:fixed;inset:0;z-index:9999;background:#050505;display:flex;align-items:center;justify-content:center;transition:opacity .8s ease,transform .8s ease}
 #intro-screen.out{opacity:0;transform:scale(1.04);pointer-events:none}
-.intro-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,rgba(34,197,94,.07) 0%,transparent 65%)}
+.intro-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,hsla(var(--accent-h),70%,45%,.07) 0%,transparent 65%)}
 .intro-particles{position:absolute;inset:0;overflow:hidden;pointer-events:none}
-.intro-particle{position:absolute;width:2px;height:2px;border-radius:50%;background:rgba(34,197,94,.6);animation:particleFloat linear infinite}
+.intro-particle{position:absolute;width:2px;height:2px;border-radius:50%;background:hsla(var(--accent-h),70%,45%,.6);animation:particleFloat linear infinite}
 @keyframes particleFloat{0%{transform:translateY(100vh) translateX(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-20px) translateX(var(--dx));opacity:0}}
 .intro-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:28px;animation:introUp .8s ease forwards}
 @keyframes introUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 .intro-logo-wrap{position:relative;width:110px;height:110px;display:flex;align-items:center;justify-content:center}
 .intro-logo{width:70px;height:70px;position:relative;z-index:2;animation:introPulse 2s ease-in-out infinite}
 @keyframes introPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
-.intro-ring{position:absolute;border-radius:50%;border-style:solid;border-color:rgba(34,197,94,.2);animation:ringRotate linear infinite}
+.intro-ring{position:absolute;border-radius:50%;border-style:solid;border-color:hsla(var(--accent-h),70%,45%,.2);animation:ringRotate linear infinite}
 .intro-ring.r1{inset:0;border-width:1px;animation-duration:3s}
-.intro-ring.r2{inset:10px;border-width:1px;border-color:rgba(34,197,94,.1);animation-duration:4s;animation-direction:reverse}
-.intro-ring.r3{inset:-8px;border-width:1px;border-color:rgba(34,197,94,.06);animation-duration:6s;border-style:dashed}
+.intro-ring.r2{inset:10px;border-width:1px;border-color:hsla(var(--accent-h),70%,45%,.1);animation-duration:4s;animation-direction:reverse}
+.intro-ring.r3{inset:-8px;border-width:1px;border-color:hsla(var(--accent-h),70%,45%,.06);animation-duration:6s;border-style:dashed}
 @keyframes ringRotate{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 .intro-text{text-align:center}
 .intro-name{display:block;font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:#f0f0f0;letter-spacing:-1px}
 .intro-tag{display:block;font-size:12px;color:rgba(240,240,240,.35);letter-spacing:3px;text-transform:uppercase;font-weight:300;margin-top:5px}
 .intro-bar{width:200px;height:2px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
-.intro-fill{height:100%;background:linear-gradient(90deg,#22c55e,#06b6d4);border-radius:2px;animation:barFill 2.4s ease forwards}
+.intro-fill{height:100%;background:linear-gradient(90deg,hsl(var(--accent-h),70%,45%),#06b6d4);border-radius:2px;animation:barFill 2.4s ease forwards}
 @keyframes barFill{from{width:0}to{width:100%}}
 
 /* ===== ROTATING ===== */
@@ -41,7 +41,7 @@
 @keyframes mainSlide{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
 
 /* ===== ONLINE DOT PULSE ===== */
-@keyframes onlinePulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}50%{box-shadow:0 0 0 4px rgba(34,197,94,0)}}
+@keyframes onlinePulse{0%,100%{box-shadow:0 0 0 0 hsla(var(--accent-h),70%,45%,.4)}50%{box-shadow:0 0 0 4px hsla(var(--accent-h),70%,45%,0)}}
 .online-pulse{animation:onlinePulse 2s infinite}
 
 /* ===== OWNER CROWN ===== */

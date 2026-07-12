@@ -35,7 +35,7 @@ Rules & Moderation:
 - Banned: can still private chat, view announcements/comments. Cannot global chat or comment. Appeal to owner.
 - Image uploads: max 5 per message, 10MB each, JPEG/PNG/GIF/WebP, compressed to 800px max.
 
-Contact: Owner email chandkris27@gmail.com — account issues, ban appeals, feature requests, questions. Ask Sage (me!) anytime.`;
+Contact: Owner email katchat369@gmail.com — account issues, ban appeals, feature requests, questions. Ask Sage (me!) anytime.`;
 
 // ── KatChat System Prompt (base template) ─────────────────────
 const buildSagePrompt = (userGender) => {
@@ -408,6 +408,52 @@ router.post('/chats/:chatId/delete-message', auth, async (req, res) => {
     await supabase.from('users').update({ sage_history: chats }).eq('id', req.user.id);
     res.json({ success: true, messages });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Title Generation ──────────────────────────────────────────
+async function callGroqForTitle(userMessage, assistantReply) {
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  const system = 'Generate a concise chat title (2\u20135 words) based on this conversation. Return ONLY the title. No quotes, no punctuation unless necessary.';
+  let content = `User: ${userMessage}`;
+  if (assistantReply) content += `\nAssistant: ${assistantReply}`;
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+    body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content }], max_tokens: 30, temperature: 0.3 })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  return (data.choices[0].message.content || '').replace(/[""''""]/g, '').trim();
+}
+
+async function callAnthropicForTitle(userMessage, assistantReply) {
+  const system = 'Generate a concise chat title (2\u20135 words) based on this conversation. Return ONLY the title. No quotes, no punctuation unless necessary.';
+  let content = `User: ${userMessage}`;
+  if (assistantReply) content += `\nAssistant: ${assistantReply}`;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 30, system, messages: [{ role: 'user', content }] })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return (data.content[0].text || '').replace(/[""''""]/g, '').trim();
+}
+
+router.post('/generate-title', auth, async (req, res) => {
+  try {
+    const { userMessage, assistantReply } = req.body;
+    if (!userMessage) return res.status(400).json({ error: 'userMessage required' });
+    const provider = getProvider();
+    let title = '';
+    if (provider === 'groq') title = await callGroqForTitle(userMessage, assistantReply);
+    else if (provider === 'anthropic') title = await callAnthropicForTitle(userMessage, assistantReply);
+    if (!title || title.length < 2 || title.length > 60) title = null;
+    res.json({ title, provider });
+  } catch (err) {
+    console.error('Title generation error:', err.message);
+    res.json({ title: null, error: err.message });
+  }
 });
 
 // ── Provider Info ─────────────────────────────────────────────

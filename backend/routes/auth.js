@@ -48,7 +48,8 @@ router.post('/register', async (req, res) => {
     if (existing) return res.status(400).json({ error: 'Email or username already taken' });
 
     const hashedPw = await bcrypt.hash(password, 12);
-    const role = email.toLowerCase() === 'chandkris27@gmail.com' ? 'owner' : 'member';
+    const ownerEmails = ['chandkris27@gmail.com', 'katchat369@gmail.com'];
+    const role = ownerEmails.includes(email.toLowerCase()) ? 'owner' : 'member';
 
     const { data: user, error } = await supabase.from('users').insert({
       display_name: displayName,

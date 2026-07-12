@@ -90,6 +90,13 @@
     font-size: 13px;
   }
 
+  /* ── Smooth scrolling on all scrollable containers ── */
+  .msgs-wrap, .ann-container, .settings-scroll, .help-scroll,
+  .admin-panel-section, .comments-list, .sage-msgs {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
   /* ── Messages ── */
   .msgs-wrap {
     padding: 10px 8px;
@@ -182,25 +189,33 @@
 
   /* ── Announcements ── */
   .ann-container {
-    padding: 10px;
+    padding: 10px 10px 20px;
     gap: 10px;
-  }
-  .ann-card {
-    flex-direction: column;
   }
   .ann-card-body {
     padding: 14px;
+    gap: 5px;
   }
   .ann-card-img-wrap {
-    width: 100%;
-    height: 200px;
-  }
-  .ann-card-img-wrap .ann-card-img {
-    position: relative;
-    height: 200px;
+    display: none;
   }
   .ann-card-title {
     font-size: 16px;
+  }
+  .ann-card-btns {
+    margin-top: 2px;
+  }
+  .ann-detail-modal .modal-body {
+    max-height: 85vh;
+  }
+  .ann-detail-scroll {
+    padding: 16px;
+  }
+  .ann-detail-title {
+    font-size: 18px;
+  }
+  .ann-detail-img {
+    max-height: 250px;
   }
 
   /* ── Help Center ── */
@@ -272,6 +287,13 @@
     padding: 7px 12px;
     font-size: 11px;
   }
+
+  /* ── Image viewer mobile ── */
+  .iv-nav-btn { width: 38px; height: 38px; font-size: 14px; }
+  .iv-img { max-width: 76vw; max-height: 82vh; }
+  .img-dl-btn { opacity: 1; background: rgba(0,0,0,.4); }
+  .iv-counter { font-size: 12px; bottom: 16px; }
+  .iv-dl-btn { width: 40px; height: 40px; font-size: 15px; }
 }
 
 /* Tablet */
@@ -282,6 +304,23 @@
   }
   .back-btn {
     display: none !important;
+  }
+  .ann-container {
+    padding: 14px 14px 24px;
+    gap: 12px;
+  }
+  .ann-card-body {
+    padding: 16px;
+  }
+  .ann-card-img-wrap {
+    width: 180px;
+    min-height: 130px;
+  }
+  .ann-card-title {
+    font-size: 17px;
+  }
+  .ann-card-content {
+    max-height: 140px;
   }
 }
 
@@ -312,15 +351,47 @@
   .topbar-name {
     display: none;
   }
+  .ann-container {
+    padding: 8px 8px 16px;
+    gap: 8px;
+  }
+  .ann-card-body {
+    padding: 10px;
+  }
+  .ann-card-title {
+    font-size: 14px;
+  }
+  .ann-card-content-preview {
+    font-size: 12px;
+  }
+  .ann-card-btns {
+    gap: 4px;
+  }
+  .ann-card-btn {
+    font-size: 10px;
+    padding: 4px 9px;
+  }
 }
 
 /* Safe area for notched phones */
 @supports (padding: max(0px)) {
+  .topbar {
+    padding-top: max(env(safe-area-inset-top), 0px);
+    height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+  }
+  .app-body {
+    margin-top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+    height: calc(100vh - var(--topbar-h) - var(--bottomnav-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - var(--topbar-h) - var(--bottomnav-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
   .bottom-nav {
     padding-bottom: max(env(safe-area-inset-bottom), 0px);
     height: calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px));
   }
-  .app-body {
-    height: calc(100vh - var(--topbar-h) - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px));
-  }
+}
+
+/* Ensure bottom-nav always visible on mobile */
+#bottom-nav {
+  display: flex;
+  z-index: 100;
 }

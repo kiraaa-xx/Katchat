@@ -104,7 +104,7 @@ Go to **http://localhost:5000**. You should see the KatChat login/signup page.
 
 ### 8. Owner Account
 
-Sign up with **`chandkris27@gmail.com`** — this email is automatically assigned the **Owner** role. Use a different email for regular member accounts.
+Sign up with **`katchat369@gmail.com`** — this email is automatically assigned the **Owner** role. Use a different email for regular member accounts.
 
 ## Environment Variables
 
@@ -204,7 +204,7 @@ If Sage returns a static message saying "someone forgot to plug me in", the `GRO
 - [ ] Start a new Sage chat (if multi-chat UI exists)
 
 ### Admin Features
-- [ ] Log in as owner (`chandkris27@gmail.com`)
+- [ ] Log in as owner (`katchat369@gmail.com`)
 - [ ] Open Admin Panel — user list loads
 - [ ] Ban a user with a reason — they are locked out immediately
 - [ ] Unban the user — they can log in again

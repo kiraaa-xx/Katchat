@@ -93,9 +93,14 @@ function makePrivMsgEl(msg) {
       <i class="fa fa-reply" style="color:var(--accent)"></i> ${esc(msg.reply_to_msg.content?.substring(0, 60) || 'Message')}
     </div>` : '';
 
-  const imagesHtml = msg.images?.length ? `
-    <div class="msg-imgs count-${Math.min(msg.images.length, 3)}">
-      ${msg.images.map(s => `<img src="${esc(s)}" onclick="openImgViewer(${onclickStr(s)})" loading="lazy">`).join('')}
+  const imgs = msg.images || [];
+  const imagesHtml = imgs.length ? `
+    <div class="msg-imgs count-${Math.min(imgs.length,5)}">
+      ${imgs.map((s,i) => `
+        <div class="msg-img-wrap">
+          <img src="${esc(s)}" onclick="openImgViewer([${imgs.map(u=>onclickStr(u)).join(',')}],${i})" loading="lazy">
+          <button class="img-dl-btn" onclick="event.stopPropagation();downloadImg(${onclickStr(s)})" title="Download"><i class="fa fa-download"></i></button>
+        </div>`).join('')}
     </div>` : '';
 
   const canDelete = isOwn || state.roles.find(r => r.name === state.user?.role)?.permissions?.canDeleteMessages;
@@ -111,6 +116,7 @@ function makePrivMsgEl(msg) {
         ${isOwn ? `<span class="msg-read"><i class="fa fa-check${msg.read_by?.length ? '-double" style="color:var(--accent)' : ''}"></i></span>` : ''}
         <div class="msg-actions">
           <button class="mac-btn" onclick="setPrivReply(event,'${msg.id}',${onclickStr(sender.display_name)},${onclickStr((msg.content||'').substring(0,60))})" title="Reply"><i class="fa fa-reply"></i></button>
+          ${imgs.length > 1 ? `<button class="mac-btn" onclick="downloadAllImgs([${imgs.map(u=>onclickStr(u)).join(',')}])" title="Download all"><i class="fa fa-images"></i></button>` : ''}
           ${canDelete ? `<button class="mac-btn" onclick="deletePrivMsg('${msg.id}')" title="Delete" style="color:var(--danger)"><i class="fa fa-trash"></i></button>` : ''}
         </div>
       </div>
@@ -148,24 +154,25 @@ async function sendPrivate() {
   if (!content && !selectedImages.length) return;
 
   if (selectedImages.length) {
-    // Send via HTTP for images
     try {
       const fd = new FormData();
       if (content) fd.append('content', content);
       if (replyToMsg) fd.append('replyTo', replyToMsg.id);
       selectedImages.forEach(f => fd.append('images', f));
-      const headers = { 'Authorization': `Bearer ${state.token}` };
-      const res = await fetch(`/api/messages/private/${activeFriend.id}`, { method: 'POST', headers, body: fd });
+      const res = await fetch(`/api/messages/private/${activeFriend.id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${state.token}` },
+        body: fd
+      });
       const data = await res.json();
+      if (!res.ok) { showToast(data.error?.message || data.error || 'Upload failed', 'error'); return; }
       if (data.message) appendPrivateMsg(data.message);
-    } catch (err) { showToast('Failed to send images', 'error'); }
+    } catch (err) { showToast('Failed to send images', 'error'); return; }
   } else {
-    // Via socket
     const tempId = `temp_${Date.now()}`;
     if (socket) {
       socket.emit('send_private_message', { recipientId: activeFriend.id, content, replyTo: replyToMsg?.id, tempId });
     }
-    // Optimistic
     const optimistic = { id: null, tempId, sender_id: state.user.id, sender: state.user, content, created_at: new Date().toISOString(), reply_to_msg: replyToMsg ? { id: replyToMsg.id, content: replyToMsg.content } : null };
     appendPrivateMsg(optimistic);
   }
@@ -191,13 +198,17 @@ function privInput(el) {
 
 // Images
 function handleImgSelect(input) {
-  const files = Array.from(input.files).slice(0, 5);
-  if (!files.length) return;
-  selectedImages = files;
+  const all = Array.from(input.files);
+  if (all.length > 5) { showToast('You can only upload up to 5 images at a time.', 'error'); input.value = ''; return; }
+  if (!all.length) return;
+  selectedImages = all;
+  renderImgPreviews();
+}
+function renderImgPreviews() {
   const preview = document.getElementById('img-previews');
   preview.innerHTML = '';
   preview.classList.remove('hidden');
-  files.forEach((f, i) => {
+  selectedImages.forEach((f, i) => {
     const url = URL.createObjectURL(f);
     const item = document.createElement('div');
     item.className = 'img-prev-item';
@@ -207,8 +218,8 @@ function handleImgSelect(input) {
 }
 function removeImg(i) {
   selectedImages.splice(i, 1);
-  if (!selectedImages.length) clearImgPreviews();
-  else handleImgSelect({ files: selectedImages });
+  if (!selectedImages.length) { clearImgPreviews(); return; }
+  renderImgPreviews();
 }
 function clearImgPreviews() {
   selectedImages = [];
@@ -240,4 +251,24 @@ function scrollToMsg(msgId) {
 function startChat(userId) {
   const friend = state.friends.find(f => f.id === userId);
   if (friend) openPrivateChat(friend);
+}
+
+// ── Image download helpers ────────────────────────────────────
+function downloadImg(url) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = url.split('/').pop() || 'image.jpg';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function downloadAllImgs(urls) {
+  urls.forEach((url, i) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `image_${i+1}_${url.split('/').pop() || 'image.jpg'}`;
+    document.body.appendChild(a);
+    setTimeout(() => { a.click(); a.remove(); }, i * 300);
+  });
 }

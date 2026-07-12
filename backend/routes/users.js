@@ -93,7 +93,7 @@ router.delete('/friend/:userId', auth, async (req, res) => {
 
 router.put('/profile', auth, async (req, res) => {
   try {
-    let { displayName, gender, theme, bio } = req.body;
+    let { displayName, gender, theme, bio, accentColor } = req.body;
     if (displayName && /[<>&"']/.test(displayName))
       return res.status(400).json({ error: 'Display name contains invalid characters' });
     if (bio) {
@@ -101,13 +101,14 @@ router.put('/profile', auth, async (req, res) => {
       if (words.length > 20) return res.status(400).json({ error: 'Bio must be 20 words or fewer' });
       if (/[<>&"']/.test(bio)) return res.status(400).json({ error: 'Bio contains invalid characters' });
     }
-    const lenErr = validateMaxLength({ displayName, gender, theme, bio }, { displayName: 50, gender: 20, theme: 20, bio: 200 });
+    const lenErr = validateMaxLength({ displayName, gender, theme, bio, accentColor }, { displayName: 50, gender: 20, theme: 20, bio: 200, accentColor: 20 });
     if (lenErr) return res.status(400).json({ error: lenErr });
     const updates = { updated_at: new Date().toISOString() };
     if (displayName) updates.display_name = displayName;
     if (theme) updates.theme = theme;
     if (bio !== undefined) updates.bio = bio;
     if (gender) { updates.gender = gender; updates.pronouns = pronounMap[gender]; updates.profile_color = colorMap[gender]; }
+    if (accentColor) updates.accent_color = accentColor;
     let user;
     try {
       const result = await supabase.from('users').update(updates).eq('id', req.user.id).select().single();

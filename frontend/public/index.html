@@ -119,7 +119,7 @@
       <p class="auth-sub">Sign in to continue chatting</p>
       <div id="login-err" class="auth-err hidden" role="alert" aria-live="assertive"></div>
       <div class="login-warning" style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:#92400e;line-height:1.5">
-        <i class="fa fa-circle-info" style="margin-right:6px"></i> <strong>Forgot your password?</strong> Contact the owner/admin at <strong>chandkris27@gmail.com</strong>
+        <i class="fa fa-circle-info" style="margin-right:6px"></i> <strong>Forgot your password?</strong> Contact the owner/admin at <strong>katchat369@gmail.com</strong>
       </div>
       <div class="form-group">
         <label for="l-email">Email address</label>
@@ -464,7 +464,7 @@
                     <div class="help-faq-a-wrap hidden">
                       <div class="help-faq-a">
                         <p>Open <strong>Settings</strong> → <strong>Security</strong>. Enter your current password, then your new password (minimum 8 characters), and click <strong>Change Password</strong>.</p>
-                        <p>If you forgot your password, contact the owner at <strong>chandkris27@gmail.com</strong> to request a reset from the Admin Panel.</p>
+                        <p>If you forgot your password, contact the owner at <strong>katchat369@gmail.com</strong> to request a reset from the Admin Panel.</p>
                       </div>
                     </div>
                   </div>
@@ -490,7 +490,7 @@
                     <div class="help-faq-a-wrap hidden">
                       <div class="help-faq-a">
                         <p>Currently, usernames and emails cannot be changed after account creation. This ensures account security and consistent identity across the platform.</p>
-                        <p>If you have a significant reason, please contact the owner at <strong>chandkris27@gmail.com</strong>.</p>
+                        <p>If you have a significant reason, please contact the owner at <strong>katchat369@gmail.com</strong>.</p>
                       </div>
                     </div>
                   </div>
@@ -507,7 +507,7 @@
                     </button>
                     <div class="help-faq-a-wrap hidden">
                       <div class="help-faq-a">
-                        <p>You can reach the owner directly via email at <strong>chandkris27@gmail.com</strong> for account issues, ban appeals, feature requests, or any other questions.</p>
+                        <p>You can reach the owner directly via email at <strong>katchat369@gmail.com</strong> for account issues, ban appeals, feature requests, or any other questions.</p>
                         <p>Alternatively, ask <strong>Sage AI</strong> for instant guidance about KatChat features and settings.</p>
                       </div>
                     </div>
@@ -539,7 +539,7 @@
                     <div class="help-faq-a-wrap hidden">
                       <div class="help-faq-a">
                         <p>Banned users can still use <strong>private chats</strong> and <strong>view announcements</strong>. However, sending global chat messages and posting announcement comments will be disabled.</p>
-                        <p>If you believe this was a mistake or wish to appeal, please contact the owner at <strong>chandkris27@gmail.com</strong>.</p>
+                        <p>If you believe this was a mistake or wish to appeal, please contact the owner at <strong>katchat369@gmail.com</strong>.</p>
                       </div>
                     </div>
                   </div>
@@ -575,7 +575,7 @@
                   <i class="fa fa-envelope help-contact-icon"></i>
                   <div>
                     <strong>Email the owner</strong>
-                    <p>For account issues, ban appeals, feature requests, or any other questions, email <strong>chandkris27@gmail.com</strong>.</p>
+                    <p>For account issues, ban appeals, feature requests, or any other questions, email <strong>katchat369@gmail.com</strong>.</p>
                   </div>
                 </div>
                 <div class="help-contact-card">
@@ -657,6 +657,10 @@
                 </label>
               </div>
             </div>
+            <div class="settings-card">
+              <h3><i class="fa fa-palette"></i> Accent Color</h3>
+              <div class="accent-grid" id="accent-grid"></div>
+            </div>
             <div class="settings-card hidden" id="admin-card">
               <h3><i class="fa fa-shield-halved"></i> Administration</h3>
               <button class="btn-secondary" onclick="navTo('admin')"><i class="fa fa-cog"></i> Open Admin Panel</button>
@@ -669,7 +673,7 @@
               </button>
               <div class="about-text-full" aria-hidden="true">
                 <p class="about-text" style="margin-top:10px">KatChat offers private messaging, a global chat room, AI assistant Sage, custom roles, announcements with comments, and a powerful admin panel — all in a beautifully minimal design.</p>
-                <p class="about-text" style="margin-top:8px"><strong>Forgot your password?</strong> Contact an admin or the owner through <a href="mailto:chandkris27@gmail.com" style="color:var(--accent)">chandkris27@gmail.com</a> to reset it via the Admin Panel.</p>
+                <p class="about-text" style="margin-top:8px"><strong>Forgot your password?</strong> Contact an admin or the owner through <a href="mailto:katchat369@gmail.com" style="color:var(--accent)">katchat369@gmail.com</a> to reset it via the Admin Panel.</p>
                 <p class="about-text" style="margin-top:8px;color:var(--txt3)">KatChat is built with Node.js, Supabase &amp; Socket.io · Version 2.0</p>
               </div>
             </div>
@@ -809,6 +813,12 @@
       <label class="checkbox-row"><input type="checkbox" id="ann-pinned"> <span>Pin this announcement</span></label>
       <button class="btn-primary full mt-12" onclick="submitAnnouncement()"><i class="fa fa-bullhorn"></i> <span id="ann-submit-label">Post Announcement</span></button>
     </div>
+  </div>
+
+  <!-- Announcement Detail -->
+  <div id="m-ann-detail" class="modal hidden ann-detail-modal">
+    <div class="modal-head"><h2><i class="fa fa-bullhorn"></i> Announcement</h2><button class="modal-x" onclick="closeAnnDetail()"><i class="fa fa-xmark"></i></button></div>
+    <div class="modal-body" id="ann-detail-body"></div>
   </div>
 
   <!-- Role Creator -->

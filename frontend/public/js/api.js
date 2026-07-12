@@ -51,6 +51,7 @@ const api = {
   postComment: (annId, content) => req('POST', `/announcements/${annId}/comments`, { content }),
   deleteComment: (annId, commentId) => req('DELETE', `/announcements/${annId}/comments/${commentId}`),
   chatSage: (messages, imageBase64, imageMime, chatId) => req('POST', '/ai/chat', { messages, imageBase64, imageMime, chatId }),
+  generateSageTitle: (userMessage, assistantReply) => req('POST', '/ai/generate-title', { userMessage, assistantReply }),
   getSageHistory: () => req('GET', '/ai/history'),
   getSageChats: () => req('GET', '/ai/chats'),
   saveSageChat: (chat) => req('POST', '/ai/chats', { chat }),

@@ -16,6 +16,7 @@ async function initApp() {
   // Apply saved theme instantly to prevent flash
   const savedTheme = localStorage.getItem('kc_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
+  initAccentColor();
 
   const isAuthed = await checkAuth();
   if (!isAuthed) {
@@ -75,6 +76,7 @@ async function enterApp() {
   const theme = state.user.theme || localStorage.getItem('kc_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('kc_theme', theme);
+  initAccentColor();
 
   // Load roles first (needed everywhere for badges)
   try {

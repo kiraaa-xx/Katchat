@@ -205,7 +205,7 @@ if (window.__katchat_bindings_loaded__) {
       'set-new-pw', 'av-upload', 'theme-toggle', 'admin-card',
       
       // Modals
-      'overlay', 'm-friend', 'm-profile', 'm-ann', 'm-role', 'm-confirm',
+      'overlay', 'm-friend', 'm-profile', 'm-ann', 'm-ann-detail', 'm-role', 'm-confirm',
       'friend-search-inp', 'ann-title', 'ann-content', 'ann-img-input',
       'role-name', 'role-color', 'role-icon',
       

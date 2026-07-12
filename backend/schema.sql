@@ -121,6 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_image_uploads_user_date ON image_uploads(user_id,
 -- ── Migrations for existing deployments ───────────────────────
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS temp_ban_until TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color TEXT DEFAULT 'cyan';
 
 -- Case-insensitive unique index on email
 DROP INDEX IF EXISTS idx_users_email_lower;
