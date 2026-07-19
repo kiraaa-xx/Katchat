@@ -56,6 +56,8 @@ app.use('/api/roles', require('./routes/roles'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/help', require('./routes/help'));
+app.use('/api/owner-messages', require('./routes/owner-messages'));
 
 // ── Serve frontend ────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend/public')));

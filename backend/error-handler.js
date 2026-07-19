@@ -78,13 +78,6 @@ class AppError extends Error {
 // ===== ERROR HANDLING MIDDLEWARE =====
 
 /**
- * Express async error wrapper
- */
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
-
-/**
  * Main error handler middleware
  */
 const errorHandler = (err, req, res, next) => {
@@ -335,19 +328,9 @@ const requestLogger = (req, res, next) => {
 
 module.exports = {
   errorLogger,
-  ErrorLogger,
-  AppError,
-  asyncHandler,
   errorHandler,
   notFound,
-  validateRequired,
-  validateEmail,
-  validatePassword,
-  validateUsername,
   validateMaxLength,
-  safeSupabaseQuery,
-  safeVerifyToken,
-  RateLimiter,
   checkRateLimit,
   requestLogger,
 };

@@ -142,6 +142,80 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── User suggestions (people you may know) ────────────────────
+router.get('/suggestions', auth, async (req, res) => {
+  try {
+    const uid = req.user.id;
+
+    // 1. Get current user's accepted friend IDs
+    const { data: myRows } = await supabase
+      .from('friends')
+      .select('user_id,friend_id')
+      .or(`user_id.eq.${uid},friend_id.eq.${uid}`)
+      .eq('status', 'accepted');
+    const myFriendIds = (myRows || []).map(r => r.user_id === uid ? r.friend_id : r.user_id);
+
+    // 2. Get pending user IDs to exclude
+    const { data: pendingRows } = await supabase
+      .from('friends')
+      .select('user_id,friend_id')
+      .or(`user_id.eq.${uid},friend_id.eq.${uid}`)
+      .eq('status', 'pending');
+    const pendingIds = (pendingRows || []).map(r => r.user_id === uid ? r.friend_id : r.user_id);
+
+    const excludeIds = [uid, ...myFriendIds, ...pendingIds];
+    if (!excludeIds.length) return res.json({ suggestions: [] });
+
+    // 3. Get candidate users not in exclude list
+    const { data: candidates } = await supabase
+      .from('users')
+      .select('id,display_name,username,profile_picture,profile_color,role,is_online,pronouns')
+      .not('id', 'in', `(${excludeIds.join(',')})`)
+      .limit(30);
+
+    if (!candidates || !candidates.length) return res.json({ suggestions: [] });
+
+    const candidateIds = candidates.map(c => c.id);
+
+    // 4. Count mutual friends for each candidate (user_id direction)
+    const { data: cfRows1 } = await supabase
+      .from('friends')
+      .select('user_id,friend_id')
+      .in('user_id', candidateIds)
+      .eq('status', 'accepted');
+
+    const mutualCounts = {};
+    (cfRows1 || []).forEach(row => {
+      if (myFriendIds.includes(row.friend_id)) {
+        mutualCounts[row.user_id] = (mutualCounts[row.user_id] || 0) + 1;
+      }
+    });
+
+    // 5. Count mutual friends (friend_id direction)
+    const { data: cfRows2 } = await supabase
+      .from('friends')
+      .select('user_id,friend_id')
+      .in('friend_id', candidateIds)
+      .eq('status', 'accepted');
+
+    (cfRows2 || []).forEach(row => {
+      if (myFriendIds.includes(row.user_id)) {
+        mutualCounts[row.friend_id] = (mutualCounts[row.friend_id] || 0) + 1;
+      }
+    });
+
+    // 6. Build suggestions sorted by mutual count
+    const suggestions = candidates
+      .map(c => ({ ...c, mutual_count: mutualCounts[c.id] || 0 }))
+      .sort((a, b) => b.mutual_count - a.mutual_count)
+      .slice(0, 6);
+
+    res.json({ suggestions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Get all users (admin) — secure response ──
 router.get('/all', auth, adminOnly, async (req, res) => {
   try {

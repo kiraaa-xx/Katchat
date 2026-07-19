@@ -98,6 +98,25 @@ CREATE TABLE IF NOT EXISTS announcement_comments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── OWNER MESSAGES (contact owner system) ──────────────────────
+CREATE TABLE IF NOT EXISTS owner_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_owner_messages_sender ON owner_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_owner_messages_created ON owner_messages(created_at);
+
+ALTER TABLE owner_messages DISABLE ROW LEVEL SECURITY;
+
+-- Migration: add reply support for owner_messages
+ALTER TABLE owner_messages ADD COLUMN IF NOT EXISTS reply TEXT;
+ALTER TABLE owner_messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ;
+ALTER TABLE owner_messages ADD COLUMN IF NOT EXISTS reply_read BOOLEAN DEFAULT false;
+
 -- ── IMAGE UPLOAD TRACKING (daily limit enforcement) ────────────
 CREATE TABLE IF NOT EXISTS image_uploads (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

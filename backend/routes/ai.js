@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const { auth } = require('../middleware/auth');
 const supabase = require('../supabase');
+const { errorLogger } = require('../error-handler');
+
+// ═══════════════════════════════════════════════════════════════════
+// SAGE AI — Groq is the only provider.
+// ═══════════════════════════════════════════════════════════════════
+
+// Friendly message shown to users when every provider is unavailable.
+// Kept as a constant so chat + title paths stay in sync.
+const MAINTENANCE_MSG =
+  '⚠️ Sage is currently under maintenance. Please try again in a few minutes.';
 
 // ── Comprehensive KatChat knowledge (shared across all personalities) ──
 const KATCHAT_KNOWLEDGE = `
@@ -87,7 +97,7 @@ Core traits:
 
 Serious topics:
 - If someone is asking for help with mental health, trauma, grief, or other serious matters, be even warmer and more supportive. Your job is to help, not to entertain in those moments.
-- Match the user's tone: if they're serious, be serious. If they're playful, be playful.
+- Match the user's tone: if they're serious, be serious. If she's playful, be playful.
 
 About swearing:
 - Don't initiate swearing. Let the user set that tone first.
@@ -153,11 +163,256 @@ Response style:
 Remember: being helpful and respectful is your primary job. Personality makes you enjoyable — but a wrong or useless answer with great personality is still useless. Always deliver real value first.`;
 };
 
-// ── Provider Detection ────────────────────────────────────────
-function getProvider() {
-  if (process.env.GROQ_API_KEY && !process.env.GROQ_API_KEY.includes('your_')) return 'groq';
-  if (process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY.includes('your_')) return 'anthropic';
-  return 'none';
+// ═══════════════════════════════════════════════════════════════════
+// PROVIDER IMPLEMENTATIONS
+// Each provider implements the same interface so the registry can swap
+// them freely. Generation params (temperature/top_p/max_tokens) are kept
+// identical across providers so Sage feels consistent regardless of who
+// answered.
+// ═══════════════════════════════════════════════════════════════════
+
+// Shared generation settings — applied uniformly to every provider.
+const GEN = { temperature: 0.7, topP: 0.9, maxTokens: 1024 };
+// Title generation settings — lower temperature for tighter output.
+const TITLE_GEN = { temperature: 0.3, maxTokens: 30 };
+
+const TITLE_SYSTEM =
+  'Generate a concise chat title (2–5 words) based on this conversation. Return ONLY the title. No quotes, no punctuation unless necessary.';
+
+// Clean a generated title: strip stray quotes and clamp length.
+const cleanTitle = (raw) => (raw || '').replace(/["'“”‘’]/g, '').trim();
+
+// Detect whether an HTTP failure should trigger a fallback. Returns true
+// for transient/recoverable errors (network, timeout, 429, 5xx, malformed
+// response). A thrown provider Error is also recoverable by default.
+const isRecoverableHttp = (status) => {
+  if (status === 429) return true;            // rate limited
+  if (status >= 500 && status < 600) return true; // server error
+  return false;
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// Groq — the primary (and only) AI provider for Sage
+// ─────────────────────────────────────────────────────────────────────
+const groqProvider = {
+  name: 'groq',
+  isConfigured() {
+    const k = process.env.GROQ_API_KEY;
+    return !!(k && !k.includes('your_'));
+  },
+  _visionModel() {
+    return process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+  },
+  async chat(messages, { systemPrompt, imageBase64, imageMime }) {
+    const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+    const lastMsg = messages[messages.length - 1];
+    const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
+    const apiMessages = [{ role: 'system', content: systemPrompt }, ...history];
+
+    if (imageBase64) {
+      apiMessages.push({
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${imageMime || 'image/jpeg'};base64,${imageBase64}` } },
+          { type: 'text', text: lastMsg?.content || 'Describe this image in detail.' },
+        ],
+      });
+      return this._post(model, apiMessages, true);
+    }
+
+    return this._post(model, apiMessages, false);
+  },
+  async _post(model, apiMessages, isVision) {
+    const body = {
+      model: isVision ? this._visionModel() : model,
+      messages: apiMessages,
+      max_tokens: GEN.maxTokens,
+      temperature: GEN.temperature,
+      top_p: GEN.topP,
+      stream: false,
+    };
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(`Groq API error: ${data?.error?.message || res.status}`);
+      err.status = res.status;
+      err.recoverable = isRecoverableHttp(res.status);
+      throw err;
+    }
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    if (!text) {
+      const err = new Error('Groq returned no text');
+      err.recoverable = true;
+      throw err;
+    }
+    return text;
+  },
+  async generateTitle(userMessage, assistantReply) {
+    const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+    let content = `User: ${userMessage}`;
+    if (assistantReply) content += `\nAssistant: ${assistantReply}`;
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'system', content: TITLE_SYSTEM }, { role: 'user', content }],
+        max_tokens: TITLE_GEN.maxTokens,
+        temperature: TITLE_GEN.temperature,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(`Groq API error: ${data?.error?.message || res.status}`);
+      err.status = res.status;
+      err.recoverable = isRecoverableHttp(res.status);
+      throw err;
+    }
+    return cleanTitle(data?.choices?.[0]?.message?.content);
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// Anthropic (kept available as an optional extra provider)
+// ─────────────────────────────────────────────────────────────────────
+const anthropicProvider = {
+  name: 'anthropic',
+  isConfigured() {
+    const k = process.env.ANTHROPIC_API_KEY;
+    return !!(k && !k.includes('your_'));
+  },
+  async chat(messages, { systemPrompt, imageBase64, imageMime }) {
+    const lastMsg = messages[messages.length - 1];
+    let userContent;
+    if (imageBase64) {
+      userContent = [
+        { type: 'image', source: { type: 'base64', media_type: imageMime || 'image/jpeg', data: imageBase64 } },
+        { type: 'text', text: lastMsg?.content || 'Describe this image in detail.' },
+      ];
+    } else {
+      userContent = lastMsg?.content || '';
+    }
+    const history = messages.slice(0, -1).slice(-10).map((m) => ({ role: m.role, content: m.content }));
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+        max_tokens: GEN.maxTokens,
+        temperature: GEN.temperature,
+        system: systemPrompt,
+        messages: [...history, { role: 'user', content: userContent }],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(`Anthropic API error: ${data?.error?.message || res.status}`);
+      err.status = res.status;
+      err.recoverable = isRecoverableHttp(res.status);
+      throw err;
+    }
+    const text = data?.content?.[0]?.text?.trim();
+    if (!text) {
+      const err = new Error('Anthropic returned no text');
+      err.recoverable = true;
+      throw err;
+    }
+    return text;
+  },
+  async generateTitle(userMessage, assistantReply) {
+    let content = `User: ${userMessage}`;
+    if (assistantReply) content += `\nAssistant: ${assistantReply}`;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+        max_tokens: TITLE_GEN.maxTokens,
+        system: TITLE_SYSTEM,
+        messages: [{ role: 'user', content }],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(`Anthropic API error: ${data?.error?.message || res.status}`);
+      err.status = res.status;
+      err.recoverable = isRecoverableHttp(res.status);
+      throw err;
+    }
+    return cleanTitle(data?.content?.[0]?.text);
+  },
+};
+
+// ── Registry: providers keyed by name. Add a new provider here. ──
+const REGISTRY = {
+  groq: groqProvider,
+  anthropic: anthropicProvider,
+};
+
+// Resolve env-configured primary/fallback, skipping providers that aren't
+// configured (missing/placeholder key). Order is always [primary, fallback].
+function resolveChain() {
+  const primaryName = (process.env.PRIMARY_AI_PROVIDER || 'groq').toLowerCase().trim();
+  const fallbackName = (process.env.FALLBACK_AI_PROVIDER || '').toLowerCase().trim();
+
+  const chain = [];
+  const seen = new Set();
+  for (const name of [primaryName, fallbackName]) {
+    const p = REGISTRY[name];
+    if (p && p.isConfigured() && !seen.has(name)) {
+      chain.push(p);
+      seen.add(name);
+    }
+  }
+  return { chain, primaryName, fallbackName };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FAILOVER EXECUTOR
+// Runs the primary provider first; on any failure it retries the same
+// request against the fallback. Returns { text, provider, usedFallback }.
+// Throws only when every configured provider has failed.
+// ═══════════════════════════════════════════════════════════════════
+async function runWithFailover(label, fn) {
+  const { chain } = resolveChain();
+  if (!chain.length) {
+    // No provider configured — return the friendly static "plug me in"
+    // message so the app still works before keys are added.
+    return {
+      text:
+        "Hey! 👋 I'm Sage, KatChat's AI with serious attitude...\n\nBut uhh, someone forgot to plug me in. Add a **GROQ_API_KEY** to the backend `.env` file and I'll actually be able to talk back. Get your free key at **https://console.groq.com** — takes 30 seconds, I'll wait. 😤",
+      provider: 'none',
+      usedFallback: false,
+    };
+  }
+
+  const errors = [];
+  for (let i = 0; i < chain.length; i++) {
+    const provider = chain[i];
+    const startedAt = Date.now();
+    try {
+      const text = await fn(provider);
+      const ms = Date.now() - startedAt;
+      console.log(`[Sage:${label}] ${provider.name} ok (${ms}ms${i > 0 ? ', via fallback' : ''})`);
+      return { text, provider: provider.name, usedFallback: i > 0 };
+    } catch (err) {
+      const ms = Date.now() - startedAt;
+      // Real error logged server-side only — never sent to the client.
+      errorLogger.log(err, `SAGE_${label.toUpperCase()}_${provider.name.toUpperCase()}`);
+      console.error(`[Sage:${label}] ${provider.name} failed in ${ms}ms: ${err.message}${err.status ? ` (HTTP ${err.status})` : ''}`);
+      errors.push({ provider: provider.name, message: err.message, status: err.status, recoverable: err.recoverable });
+    }
+  }
+
+  // Every provider failed → surface a single aggregated error so the
+  // caller can return the maintenance message.
+  const allErr = new Error(`All providers failed for ${label}`);
+  allErr.providerErrors = errors;
+  throw allErr;
 }
 
 // ── Fetch announcements for Sage context ─────────────────────
@@ -179,66 +434,9 @@ async function getAnnouncementsContext() {
   } catch { return ''; }
 }
 
-// ── Groq Handler ──────────────────────────────────────────────
-async function callGroq(messages, imageBase64, imageMime, userGender, announcementsContext) {
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-  const lastMsg = messages[messages.length - 1];
-  const sageSystem = buildSagePrompt(userGender) + (announcementsContext || '');
-
-  if (imageBase64) {
-    const visionModel = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
-    const visionMessages = [
-      { role: 'system', content: sageSystem },
-      { role: 'user', content: [
-        { type: 'image_url', image_url: { url: `data:${imageMime || 'image/jpeg'};base64,${imageBase64}` } },
-        { type: 'text', text: lastMsg?.content || 'Describe this image in detail.' }
-      ]}
-    ];
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
-      body: JSON.stringify({ model: visionModel, messages: visionMessages, max_tokens: 1024 })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-    return data.choices[0].message.content;
-  }
-
-  const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
-  const apiMessages = [{ role: 'system', content: sageSystem }, ...history];
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
-    body: JSON.stringify({ model, messages: apiMessages, max_tokens: 1024, temperature: 0.7, top_p: 0.9, stream: false })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return data.choices[0].message.content;
-}
-
-// ── Anthropic Handler ─────────────────────────────────────────
-async function callAnthropic(messages, imageBase64, imageMime, userGender, announcementsContext) {
-  const lastMsg = messages[messages.length - 1];
-  const sageSystem = buildSagePrompt(userGender) + (announcementsContext || '');
-  let userContent;
-  if (imageBase64) {
-    userContent = [
-      { type: 'image', source: { type: 'base64', media_type: imageMime || 'image/jpeg', data: imageBase64 } },
-      { type: 'text', text: lastMsg?.content || 'Describe this image in detail.' }
-    ];
-  } else {
-    userContent = lastMsg?.content || '';
-  }
-  const history = messages.slice(0, -1).slice(-10).map(m => ({ role: m.role, content: m.content }));
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1024, system: sageSystem, messages: [...history, { role: 'user', content: userContent }] })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message);
-  return data.content[0].text;
-}
+// ═══════════════════════════════════════════════════════════════════
+// ROUTES
+// ═══════════════════════════════════════════════════════════════════
 
 // ── Chat Endpoint ─────────────────────────────────────────────
 router.post('/chat', auth, async (req, res) => {
@@ -250,20 +448,15 @@ router.post('/chat', auth, async (req, res) => {
     const { data: userData } = await supabase.from('users').select('gender').eq('id', req.user.id).single();
     const userGender = userData?.gender || 'prefer-not-to-say';
 
-    const provider = getProvider();
-
     // Feed Sage with recent announcements
     const announcementsContext = await getAnnouncementsContext();
+    const sageSystem = buildSagePrompt(userGender) + (announcementsContext || '');
 
-    let replyText;
-
-    if (provider === 'groq') {
-      replyText = await callGroq(messages, imageBase64, imageMime, userGender, announcementsContext);
-    } else if (provider === 'anthropic') {
-      replyText = await callAnthropic(messages, imageBase64, imageMime, userGender, announcementsContext);
-    } else {
-      replyText = "Hey! 👋 I'm Sage, KatChat's AI with serious attitude...\n\nBut uhh, someone forgot to plug me in. Add a **GROQ_API_KEY** or **ANTHROPIC_API_KEY** to the backend `.env` file and I'll actually be able to talk back. Get your free key at **https://console.groq.com** — takes 30 seconds, I'll wait. 😤";
-    }
+    // Single failover call — primary then fallback automatically.
+    const result = await runWithFailover('chat', (provider) =>
+      provider.chat(messages, { systemPrompt: sageSystem, imageBase64, imageMime })
+    );
+    const replyText = result.text;
 
     // Build user message — store image as data URL for display in chat
     const userMsg = { ...messages[messages.length - 1] };
@@ -279,7 +472,7 @@ router.post('/chat', auth, async (req, res) => {
     if (updated.length > 20) {
       updated = updated.slice(5); // remove oldest 5
     }
-    
+
     if (chatId) {
       // Update existing chat
       const { data: userData2 } = await supabase.from('users').select('sage_history').eq('id', req.user.id).single();
@@ -296,10 +489,20 @@ router.post('/chat', auth, async (req, res) => {
       await supabase.from('users').update({ sage_history: updated.slice(-10) }).eq('id', req.user.id);
     }
 
-    res.json({ content: replyText, provider, imageDataUrl });
+    res.json({ content: replyText, provider: result.provider, imageDataUrl });
   } catch (err) {
-    console.error('Sage AI error:', err.message);
-    res.status(500).json({ error: `Sage hit a wall: ${err.message}` });
+    // Both providers failed (or another server-side fault). Never expose
+    // raw provider errors / stack traces to the client — return the clean
+    // maintenance message as Sage's reply. Details stay server-side only.
+    console.error('Sage chat — all providers failed:', err.message);
+    if (err.providerErrors) {
+      err.providerErrors.forEach((e) =>
+        errorLogger.log(new Error(`${e.provider}: ${e.message}`), 'SAGE_CHAT_FAILOVER')
+      );
+    } else {
+      errorLogger.log(err, 'SAGE_CHAT_ERROR');
+    }
+    res.status(200).json({ content: MAINTENANCE_MSG, provider: 'none', maintenance: true });
   }
 });
 
@@ -316,7 +519,10 @@ router.get('/history', auth, async (req, res) => {
     } else {
       res.json({ history });
     }
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    errorLogger.log(err, 'SAGE_HISTORY');
+    res.status(500).json({ error: 'Failed to load history' });
+  }
 });
 
 // ── Get All Sage Chats ────────────────────────────────────────
@@ -336,7 +542,10 @@ router.get('/chats', auth, async (req, res) => {
         res.json({ chats: [] });
       }
     }
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    errorLogger.log(err, 'SAGE_CHATS');
+    res.status(500).json({ error: 'Failed to load chats' });
+  }
 });
 
 // ── Save Chat ─────────────────────────────────────────────────
@@ -346,7 +555,7 @@ router.post('/chats', auth, async (req, res) => {
     if (!chat?.id) return res.status(400).json({ error: 'Chat required' });
     const { data: userData } = await supabase.from('users').select('sage_history').eq('id', req.user.id).single();
     let chats = userData?.sage_history || [];
-    
+
     // Handle legacy format migration
     if (chats.length > 0 && !(chats[0]?.id && chats[0]?.messages)) {
       chats = []; // Reset legacy format
@@ -368,7 +577,10 @@ router.post('/chats', auth, async (req, res) => {
 
     await supabase.from('users').update({ sage_history: chats }).eq('id', req.user.id);
     res.json({ success: true, chats });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    errorLogger.log(err, 'SAGE_SAVE_CHAT');
+    res.status(500).json({ error: 'Failed to save chat' });
+  }
 });
 
 // ── Delete Chat ───────────────────────────────────────────────
@@ -379,7 +591,10 @@ router.delete('/chats/:chatId', auth, async (req, res) => {
     chats = chats.filter(c => c.id !== req.params.chatId);
     await supabase.from('users').update({ sage_history: chats }).eq('id', req.user.id);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    errorLogger.log(err, 'SAGE_DELETE_CHAT');
+    res.status(500).json({ error: 'Failed to delete chat' });
+  }
 });
 
 // ── Delete message from chat ──────────────────────────────────
@@ -387,12 +602,12 @@ router.post('/chats/:chatId/delete-message', auth, async (req, res) => {
   try {
     const { messageIndex } = req.body;
     if (messageIndex === undefined) return res.status(400).json({ error: 'messageIndex required' });
-    
+
     const { data: userData } = await supabase.from('users').select('sage_history').eq('id', req.user.id).single();
     let chats = userData?.sage_history || [];
     const chatIdx = chats.findIndex(c => c.id === req.params.chatId);
     if (chatIdx < 0) return res.status(404).json({ error: 'Chat not found' });
-    
+
     // Remove message and the following response (if applicable)
     const messages = chats[chatIdx].messages || [];
     if (messages[messageIndex]) {
@@ -402,61 +617,55 @@ router.post('/chats/:chatId/delete-message', auth, async (req, res) => {
         messages.splice(messageIndex, 1);
       }
     }
-    
+
     chats[chatIdx].messages = messages;
     chats[chatIdx].updated_at = new Date().toISOString();
     await supabase.from('users').update({ sage_history: chats }).eq('id', req.user.id);
     res.json({ success: true, messages });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    errorLogger.log(err, 'SAGE_DELETE_MSG');
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
 });
 
 // ── Title Generation ──────────────────────────────────────────
-async function callGroqForTitle(userMessage, assistantReply) {
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-  const system = 'Generate a concise chat title (2\u20135 words) based on this conversation. Return ONLY the title. No quotes, no punctuation unless necessary.';
-  let content = `User: ${userMessage}`;
-  if (assistantReply) content += `\nAssistant: ${assistantReply}`;
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
-    body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content }], max_tokens: 30, temperature: 0.3 })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return (data.choices[0].message.content || '').replace(/[""''""]/g, '').trim();
-}
-
-async function callAnthropicForTitle(userMessage, assistantReply) {
-  const system = 'Generate a concise chat title (2\u20135 words) based on this conversation. Return ONLY the title. No quotes, no punctuation unless necessary.';
-  let content = `User: ${userMessage}`;
-  if (assistantReply) content += `\nAssistant: ${assistantReply}`;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 30, system, messages: [{ role: 'user', content }] })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message);
-  return (data.content[0].text || '').replace(/[""''""]/g, '').trim();
-}
-
+// Uses the same failover logic so titles are generated even if the
+// primary is temporarily down. Failure is non-fatal (title stays 'New Chat').
 router.post('/generate-title', auth, async (req, res) => {
   try {
     const { userMessage, assistantReply } = req.body;
     if (!userMessage) return res.status(400).json({ error: 'userMessage required' });
-    const provider = getProvider();
-    let title = '';
-    if (provider === 'groq') title = await callGroqForTitle(userMessage, assistantReply);
-    else if (provider === 'anthropic') title = await callAnthropicForTitle(userMessage, assistantReply);
+
+    let title = null;
+    try {
+      const result = await runWithFailover('title', (provider) =>
+        provider.generateTitle(userMessage, assistantReply)
+      );
+      title = result.text;
+    } catch (err) {
+      // Both providers failed for title — keep null, frontend keeps 'New Chat'.
+      console.error('Sage title generation failed:', err.message);
+    }
     if (!title || title.length < 2 || title.length > 60) title = null;
-    res.json({ title, provider });
+    res.json({ title });
   } catch (err) {
-    console.error('Title generation error:', err.message);
-    res.json({ title: null, error: err.message });
+    errorLogger.log(err, 'SAGE_TITLE_ERROR');
+    // Non-fatal: return null so the chat keeps its current title.
+    res.json({ title: null });
   }
 });
 
 // ── Provider Info ─────────────────────────────────────────────
-router.get('/provider', auth, (req, res) => res.json({ provider: getProvider() }));
+// Lets the client surface which provider answered (for the logs/debug),
+// without leaking keys or internals.
+router.get('/provider', auth, (req, res) => {
+  const { chain, primaryName, fallbackName } = resolveChain();
+  res.json({
+    primary: primaryName,
+    fallback: fallbackName,
+    active: chain[0]?.name || 'none',
+    configured: chain.map((p) => p.name),
+  });
+});
 
 module.exports = router;
