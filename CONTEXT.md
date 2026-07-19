@@ -1,6 +1,6 @@
 # KatChat — Full Project Context
 
-> *Use this document to understand the entire project at a glance and share it with others to get feedback, ideas, or contributions.*
+> Use this document to understand the entire project at a glance. Covers architecture, codebase structure, features, database, security, known issues, and debugging.
 
 ---
 
@@ -18,7 +18,7 @@ KatChat is a **full-stack real-time messaging platform** — a modern chat app w
 |-------|-----------|
 | **Backend** | Node.js, Express, Socket.IO |
 | **Database** | Supabase (PostgreSQL) |
-| **AI** | Groq (primary, free) / Anthropic (fallback) |
+| **AI** | Groq (free; `llama-3.3-70b-versatile`) |
 | **Frontend** | Vanilla JS SPA, CSS3, Font Awesome 6 |
 | **Auth** | JWT (jsonwebtoken + bcryptjs) |
 | **Uploads** | Multer (images only: JPEG, PNG, GIF, WebP) |
@@ -29,68 +29,132 @@ KatChat is a **full-stack real-time messaging platform** — a modern chat app w
 
 ```
 katchat/
-├── README.md                   # Full setup guide & feature list
-├── CONTEXT.md                  # This file
-├── PROJECT_STRUCTURE.md        # Developer architecture reference
-├── AI_BEHAVIOR.md              # Sage AI personality & provider config
-├── SAGE_BEHAVIOR.md            # Developer reference for Sage internals
-├── BUGS_AND_ISSUES.md          # Applied fixes, known issues, debug tools
-├── package.json                # Root orchestrator (dev/start scripts)
+├── README.md                    # Entry point & setup
+├── CONTEXT.md                   # This file — full project reference
+├── AI_BEHAVIOR.md               # Sage AI personality, provider, developer guide
 │
 ├── backend/
-│   ├── server.js               # Express entry: middleware, routes, socket, static serve
-│   ├── supabase.js             # Supabase client (service_role key)
-│   ├── utils.js                # Shared: imageFileFilter, sendError
-│   ├── error-handler.js        # Central: ErrorLogger, AppError, rate limiter, validators
-│   ├── schema.sql              # Full PostgreSQL schema (run in Supabase)
-│   ├── .env                    # Env vars (not committed)
+│   ├── server.js                # Express entry: CORS, CSP, rate limiter, routes, static serve
+│   ├── supabase.js              # Supabase client (service_role key)
+│   ├── utils.js                 # Shared: imageFileFilter, sendError
+│   ├── error-handler.js         # Central: ErrorLogger, rate limiter, validators
+│   ├── schema.sql               # Full PostgreSQL schema (run in Supabase)
+│   ├── help-content.json        # Editable help center content (via admin panel)
+│   ├── .env                     # Env vars (not committed)
 │   ├── middleware/
-│   │   └── auth.js             # JWT auth, adminOnly, ownerOnly guards
+│   │   └── auth.js              # JWT auth, adminOnly, ownerOnly guards
 │   ├── routes/
-│   │   ├── auth.js             # POST /api/auth (login, signup, password reset)
-│   │   ├── users.js            # GET/PUT /api/users (profile, search, avatar, friends)
-│   │   ├── messages.js         # GET /api/messages (history, image upload)
-│   │   ├── announcements.js    # CRUD /api/announcements + comments
-│   │   ├── roles.js            # CRUD /api/roles (custom roles, permissions)
-│   │   └── ai.js               # POST /api/ai/chat, history, multi-chat management
+│   │   ├── auth.js              # POST /api/auth (login, signup, password reset)
+│   │   ├── users.js             # GET/PUT /api/users (profile, search, avatar, friends, suggestions)
+│   │   ├── messages.js          # GET /api/messages (history, image upload)
+│   │   ├── announcements.js     # CRUD /api/announcements + comments
+│   │   ├── roles.js             # CRUD /api/roles (custom roles, permissions)
+│   │   ├── ai.js                # POST /api/ai/chat, history, multi-chat management
+│   │   ├── help.js              # GET/PUT /api/help (editable help center, owner-only write)
+│   │   └── owner-messages.js    # Owner contact messaging system
 │   ├── socket/
-│   │   └── index.js            # Socket.IO: messages, typing, bans, heartbeats, online count
-│   ├── logs/                   # Daily error files: errors-YYYY-MM-DD.log
-│   └── public/uploads/         # Uploaded images (avatars, message images, announcements)
+│   │   └── index.js             # Socket.IO: messages, typing, bans, heartbeats, online count
+│   ├── logs/                    # Daily error files: errors-YYYY-MM-DD.log
+│   └── public/uploads/          # Uploaded images (avatars, message images, announcements)
 │
 ├── frontend/
 │   └── public/
-│       ├── index.html          # SPA shell: views, modals, all scripts (defer ordered)
+│       ├── index.html           # SPA shell: views, modals, all scripts (defer ordered)
 │       ├── css/
-│       │   ├── style.css       # All styles: dark/light themes, components, responsive
-│       │   ├── animations.css  # Intro screen, particle, glow, swipe animations
-│       │   └── mobile.css      # Mobile-specific: bottom nav, swipe, compact layout
+│       │   ├── style.css        # All styles: dark/light themes, components, responsive
+│       │   ├── animations.css   # Intro screen, particle, glow, swipe animations
+│       │   └── mobile.css       # Mobile-specific: bottom nav, swipe, compact layout
 │       ├── js/
-│       │   ├── fixes.js        # Safety foundation: fallback functions, safe DOM, polyfills
-│       │   ├── error-handler.js# Frontend error logger, perf monitoring, 200-entry history
-│       │   ├── bindings.js     # Startup validation: 70+ functions, 100+ DOM IDs
-│       │   ├── validation.js   # esc() XSS sanitizer, 20+ validators
-│       │   ├── api.js          # Fetch wrapper for all REST endpoints
-│       │   ├── state.js        # Global app state object
-│       │   ├── ui.js           # UI helpers: avatars, toasts, modals, image viewer
-│       │   ├── socket-client.js# Socket.IO client: message handlers, ban events, typing
-│       │   ├── auth.js         # Login, signup, forced password change flows
-│       │   ├── chat.js         # Private chat: rendering, sending, replies, images
-│       │   ├── global.js       # Global chat: @mentions, /commands, rendering
-│       │   ├── friends.js      # Friend requests, search, accept/decline
-│       │   ├── announcements.js# Announcements list, comments, create/edit (admin)
-│       │   ├── sage.js         # Sage AI chat UI, image upload, chat history panel
-│       │   ├── settings.js     # Profile edit, password change, theme toggle
-│       │   ├── admin.js        # Admin panel: users, roles, bans, announcements
-│       │   ├── app.js          # enterApp() init: auth check, view routing
-│       │   └── swipe.js        # Mobile swipe-to-reply gesture handler
+│       │   ├── fixes.js         # Safety foundation: fallback functions, safe DOM, polyfills
+│       │   ├── error-handler.js # Frontend error logger, perf monitoring, 200-entry history
+│       │   ├── bindings.js      # Startup validation: 70+ functions, 100+ DOM IDs
+│       │   ├── validation.js    # esc() XSS sanitizer, 20+ validators
+│       │   ├── api.js           # Fetch wrapper for all REST endpoints
+│       │   ├── state.js         # Global app state object
+│       │   ├── ui.js            # UI helpers: avatars, toasts, modals, image viewer
+│       │   ├── notifications.js # Browser notification system (PM + announcements)
+│       │   ├── socket-client.js # Socket.IO client: message handlers, ban events, typing
+│       │   ├── auth.js          # Login, signup, forced password change flows
+│       │   ├── chat.js          # Private chat: rendering, sending, replies, images
+│       │   ├── global.js        # Global chat: @mentions, /commands, rendering
+│       │   ├── friends.js       # Friend requests, search, accept/decline, suggestions
+│       │   ├── announcements.js # Announcements list, comments, create/edit (admin)
+│       │   ├── sage.js          # Sage AI chat UI, image upload, chat history panel
+│       │   ├── settings.js      # Profile edit, password change, theme, notifications
+│       │   ├── help.js          # Help center rendering (fetches from API)
+│       │   ├── admin.js         # Admin panel: users, roles, bans, posts, help content
+│       │   ├── owner-messages.js# Owner contact messages (admin view)
+│       │   ├── app.js           # enterApp() init: auth check, view routing
+│       │   └── swipe.js         # Mobile swipe-to-reply gesture handler
 │       └── assets/
-│           ├── logo.png        # Main app logo
-│           ├── sage-logo.png   # Sage AI rotating icon
-│           └── favicons/       # PWA favicons (all sizes + manifest)
+│           ├── logo.png         # White app logo (dark theme)
+│           ├── logo_black.png   # Black app logo (light theme)
+│           ├── sage-logo.png    # Sage AI rotating icon
+│           └── favicons/        # PWA favicons (all sizes + manifest)
 │
-└── .bug-hunter/                # Bug-hunter analysis artifacts (recon, findings, triage)
+└── package.json                 # Root orchestrator (dev/start scripts)
 ```
+
+---
+
+## Architecture Overview
+
+```
+┌──────────────┐     HTTP/WS      ┌──────────────┐     SQL      ┌──────────┐
+│  Frontend    │ ───────────────> │  Express      │ ──────────> │Supabase  │
+│  (Vanilla JS │ <─────────────── │  + Socket.IO  │ <────────── │PostgreSQL│
+│   SPA)       │                  │               │             └──────────┘
+└──────────────┘                  └──────────────┘
+       │                                  │
+       │                                  └── Groq API (Sage AI)
+       │
+       └── Browser console tools:
+           runValidation(), getErrorLog(), trackPerf()
+```
+
+---
+
+## Frontend — Script Load Order
+
+Scripts are loaded with `defer` in this exact order:
+
+1. `.js/socket.io` CDN — Socket.IO library
+2. `fixes.js` — Foundation, fallbacks, safe DOM
+3. `error-handler.js` — Error tracking, async wrapping, perf
+4. `bindings.js` — Validates all functions & DOM IDs exist
+5. `validation.js` — XSS escaping, validators
+6. `api.js` — Fetch client
+7. `state.js` — App state
+8. `ui.js` — UI components
+9. `notifications.js` — Browser notification system
+10. `socket-client.js` — Socket.IO client events
+11. `auth.js` — Login/signup flows
+12. `chat.js` — Private chat
+13. `global.js` — Global chat
+14. `friends.js` — Friends system
+15. `announcements.js` — Announcements
+16. `sage.js` — Sage AI
+17. `settings.js` — Settings
+18. `help.js` — Help center
+19. `admin.js` — Admin panel
+20. `owner-messages.js` — Owner contact messages
+21. `swipe.js` — Mobile gestures
+22. `app.js` — `enterApp()` initialization
+
+---
+
+## Backend — Request Flow
+
+```
+Request → server.js (CORS, CSP, rate limiter)
+       → middleware/auth.js (JWT verification)
+       → route handler (Supabase query, validation)
+       → JSON response
+       ↓ on error:
+       error-handler.js (logs to disk, sanitized response)
+```
+
+Socket.IO handles real-time events: messages, typing indicators, online status, ban/unban.
 
 ---
 
@@ -113,18 +177,18 @@ katchat/
 - Global chat auto-cleanup: oldest 30 deleted when total exceeds 200
 
 ### 3. Sage AI Assistant
-- Powered by **Groq** (free, primary), falls back to **Anthropic Claude**
+- Powered by **Groq** (`llama-3.3-70b-versatile`)
 - Adaptive personality: gender-aware tone, serious-topic detection, no unwanted swearing
-- Image analysis via vision model
+- Image analysis via vision model (`meta-llama/llama-4-scout-17b-16e-instruct`)
 - Multi-chat history (up to 10 chats, 20 messages each)
 - Context window: last 10 messages sent to provider
 - Temperature: 0.7, max 1024 tokens
-- Built-in personality defined in `backend/routes/ai.js:buildSagePrompt()`
+- See **AI_BEHAVIOR.md** for full personality and provider details
 
 ### 4. Friends System
 - Search users by name/username
 - Send/accept/decline friend requests
-- Mutual friends display
+- Mutual friends display, suggested friends
 - Online status indicators
 - Friends list appears in sidebar for quick chat access
 
@@ -137,7 +201,7 @@ katchat/
 ### 6. Roles & Permissions
 - **Member** (gray): chat, global chat, view & comment on announcements
 - **Admin** (cyan): + ban users, delete messages, create announcements, admin panel
-- **Owner** (red): + manage roles, manage users, glowing messages, full control
+- **Owner** (red): + manage roles, manage users, full control, glowing messages
 - Custom roles: configurable name, color, icon, and granular permissions via Admin Panel
 
 ### 7. Admin Panel
@@ -145,79 +209,48 @@ katchat/
 - **Roles tab**: create/edit custom roles with permission toggles
 - **Bans tab**: view active bans, lift bans
 - **Posts tab**: create, pin, or delete announcements
+- **Help Center tab** (owner only): edit HTML content of each help section
+- **Contact Messages tab**: view and reply to owner contact messages
 
-### 8. Settings
+### 8. Help Center
+- 6 collapsible sections: Getting Started, Key Features, Commands, Roles & Permissions, FAQ, Contact Owner
+- Content is fetched from `GET /api/help` (seeded from `backend/help-content.json`)
+- Owner can edit section content in Admin Panel → Help Center tab
+- Automatically falls back to static HTML if API is unavailable
+
+### 9. Settings
 - Edit display name, bio (max 20 words), gender
 - Upload avatar
 - Change password (requires current password)
 - Dark/Light theme toggle (persisted to DB)
 - Fast mode (disables animations for low-end devices)
+- Notification toggles (private messages, announcements)
 - Forced password change after admin reset
 
-### 9. Security Layer
-| Measure | Implementation |
-|---------|---------------|
-| XSS Prevention | `esc()` HTML-escaping, `safeJsonForOnclick()`, CSP headers |
-| Input Validation | 20+ frontend validators, server-side length/format checks |
-| Rate Limiting | 300 req/min per IP (in-memory) |
-| Auth | JWT with bcrypt password hashing |
-| Image Filter | Only JPEG/PNG/GIF/WebP allowed |
-| CSP | Strict Content-Security-Policy header |
-| CORS | Restricted to configured origins |
+### 10. Notifications (Browser)
+- Private message notifications via `notificationSystem.notifyPrivateMessage()`
+- Announcement notifications via 60-second polling (`checkNewAnnouncements`)
+- Per-type toggles in Settings, stored in localStorage
+- Click notification opens the relevant chat/view
+- Graceful fallback if Notification API unavailable or permission denied
 
 ---
 
 ## Database Schema (PostgreSQL via Supabase)
 
 7 tables:
-- **users** — id, display_name, username, email, password (bcrypt), gender, profile_picture, role, is_banned, temp_ban_until, must_change_password, theme, sage_history (JSONB), etc.
+
+- **users** — id, display_name, username, email, password (bcrypt), gender, profile_picture, profile_color, role, is_banned, temp_ban_until, must_change_password, theme, accented_color, intro_seen, sage_history (JSONB), is_online, last_seen, pronouns, bio, accent_color
 - **roles** — name, color, icon, permissions (JSONB), is_system
 - **messages** — id, sender_id, content, images (TEXT[]), type (private|global), conversation_id, reply_to, mentions, deleted, is_owner_message, read_by (UUID[])
 - **friends** — user_id, friend_id, status (pending|accepted)
-- **announcements** — id, title, content, image, author_id, pinned
+- **announcements** — id, title, content, image, author_id, pinned, created_at
 - **announcement_comments** — id, announcement_id, author_id, content, deleted
 - **image_uploads** — user_id, upload_date, count (daily limit enforcement)
 
 Triggers: auto-cleanup of old private (keep 20) and global (keep 200) messages.
 
 ---
-
-## Script Load Order (Frontend)
-
-Scripts are loaded with `defer` in this exact order:
-
-1. **Socket.IO CDN** — library
-2. **fixes.js** — foundation, fallbacks, safe DOM
-3. **error-handler.js** — error tracking, async wrapping, perf
-4. **bindings.js** — validates all functions & DOM IDs exist
-5. **validation.js** — XSS escaping, validators
-6. **api.js** — fetch client
-7. **state.js** — app state
-8. **ui.js** — UI components
-9. **socket-client.js** — Socket.IO client events
-10. **auth.js** — login/signup flows
-11. **chat.js** — private chat
-12. **global.js** — global chat
-13. **friends.js** — friends system
-14. **announcements.js** — announcements
-15. **sage.js** — Sage AI
-16. **settings.js** — settings
-17. **admin.js** — admin panel
-18. **swipe.js** — mobile gestures
-19. **app.js** — `enterApp()` initialization
-
----
-
-## Request Flow (Backend)
-
-```
-Request → server.js (CORS, CSP, rate limiter)
-       → middleware/auth.js (JWT verification)
-       → route handler (Supabase query, validation)
-       → JSON response
-       ↓ on error:
-       error-handler.js (logs to disk, sanitized response)
-```
 
 ## Socket.IO Events
 
@@ -238,17 +271,50 @@ Request → server.js (CORS, CSP, rate limiter)
 
 ---
 
+## Security Layer
+
+| Measure | Implementation |
+|---------|---------------|
+| XSS Prevention | `esc()` HTML-escaping, `safeJsonForOnclick()`, CSP headers |
+| Input Validation | 20+ frontend validators, server-side length/format checks |
+| Rate Limiting | 300 req/min per IP (in-memory) |
+| Auth | JWT with bcrypt password hashing |
+| Image Filter | Only JPEG/PNG/GIF/WebP allowed |
+| CSP | Strict Content-Security-Policy header |
+| CORS | Restricted to configured origins |
+
+---
+
 ## Known Issues & Limitations
 
 | Issue | Impact |
 |-------|--------|
-| RLS not enabled on Supabase | service_role key bypasses RLS — refactor needed for anon-key migration |
+| RLS not enabled | service_role key bypasses RLS — refactor needed for anon-key migration |
 | `sage_history` stored as JSONB | Not normalized — migration risks data loss |
 | No email verification | Users can sign up with any email |
 | No email notification on password reset | Admin resets password, but user isn't emailed |
 | Socket.IO not rate-limited | Socket events have no rate limiting |
 | Error logs not rotated | Daily log files grow unbounded |
 | No streaming for Sage AI | Responses are full-text, not token-by-token |
+
+---
+
+## Applied Fixes History
+
+### Phase 1 — Debug & Stabilize
+Centralized error tracking (`error-handler.js`), function safety layer (`fixes.js`), startup validation (`bindings.js`), 20+ validators (`validation.js`), rate limiter (100 req/min), script load ordering with `defer`, health endpoint.
+
+### Phase 2a — Backend & Database Security
+Server-side XSS rejection, CSP headers, temp ban persisted to DB, shared `imageFileFilter`, `validateMaxLength` on all text fields, restricted CORS, DB indexes, MulterError handler.
+
+### Phase 2b — Frontend XSS & UI Fixes
+`esc()` now escapes single quotes, `safeJsonForOnclick()` for onclick handlers, image src escaping, null-safety with optional chaining, ARIA roles for toasts and modals.
+
+### Phase 2c — Sage AI Behavior Improvements
+Reduced nickname frequency (1–2 per convo), serious-topic detection, swearing changed to "don't initiate", "answer first" priority rule, temperature 0.8→0.7.
+
+### Phase 2d — Architecture & Code Quality
+Deduplicated multer filter into `utils.js`, removed duplicate avatar builder, removed dead code, replaced silent `catch(() => {})` with `console.warn`.
 
 ---
 
@@ -268,55 +334,24 @@ trackPerfAsync(l, fn)      // Measure async operation time
 
 Backend health: `GET /health` → `{"status":"ok"}`
 
+### Error Codes
+
+**Frontend:** `AUTH_FAILED`, `VALIDATION_ERROR`, `NETWORK_ERROR`, `TIMEOUT`, `NOT_FOUND`, `RATE_LIMITED`
+
+**Backend:** `INVALID_EMAIL`, `WEAK_PASSWORD`, `INVALID_USERNAME`, `TOKEN_EXPIRED`, `INVALID_TOKEN`, `DB_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`
+
 ---
 
-## Asking for Ideas — Context for Contributors
+## Future Ideas
 
-When sharing this project to get ideas, here are areas where KatChat could grow:
+### Potential Features
+- Voice/video calling (WebRTC), message reactions, message editing, file sharing, group chats, push notifications, OAuth login (Google/GitHub/Discord), message search, threads, user blocking, read receipts UI, custom emoji/stickers, E2E encryption
 
-### 🚀 Potential Features
-- **Voice/video calling** (WebRTC integration)
-- **Message reactions** (emoji reactions on messages)
-- **Message editing** (edit sent messages)
-- **File sharing** (PDFs, documents, etc.)
-- **Group chats** (multi-user private rooms)
-- **Push notifications** (web push API)
-- **Email verification flow**
-- **OAuth login** (Google, GitHub, Discord)
-- **Message search** (full-text search across conversations)
-- **Message threads** (nested replies)
-- **User blocking** (block specific users)
-- **Read receipts UI** (show who read each message)
-- **Custom emoji/ sticker system**
-- **End-to-end encryption** for private chats
+### Technical Improvements
+- Database normalization, Redis caching, WebSocket rate limiting, automated test suite, CI/CD, Docker setup, log rotation, TypeScript migration, OpenAPI docs, i18n, PWA offline support
 
-### 🔧 Technical Improvements
-- **Database normalization** (separate sage_history table)
-- **Redis caching** for online users and rate limiting
-- **WebSocket rate limiting**
-- **Automated test suite** (unit + integration tests — currently none)
-- **CI/CD pipeline**
-- **Docker setup** for easy deployment
-- **Log rotation** (winston or pino)
-- **TypeScript migration**
-- **API documentation** (OpenAPI/Swagger)
-- **i18n / localization**
-- **PWA offline support** (service worker + cache)
+### UX/UI Ideas
+- Customizable profiles, chat themes, markdown formatting, GIF support, voice messages, scheduled messages, message pinning, AMOLED dark theme
 
-### 🎨 UX/UI Ideas
-- **Customizable profiles** (profile banners, status messages)
-- **Chat themes** (custom background colors/images per chat)
-- **Message formatting** (bold, italic, code blocks, markdown)
-- **GIF support** (Giphy or Tenor integration)
-- **Voice messages** (record and send audio clips)
-- **Scheduled messages**
-- **Message pinning** (pin important messages in chat)
-- **Dark mode improvements** (AMOLED theme)
-
-### 🧠 Sage AI Enhancements
-- **Streaming responses** (token-by-token)
-- **Custom knowledge base** (upload docs for Sage to reference)
-- **Role-aware context** (Sage knows about other users/conversations)
-- **Image generation** (DALL-E or Stable Diffusion integration)
-- **Multi-modal** (voice input, file analysis)
-
+### Sage AI Enhancements
+- Streaming responses, custom knowledge base, role-aware context, image generation, multi-modal input

@@ -444,8 +444,5 @@ function updateFriendOnlineStatus(userId, isOnline, lastSeen) {
 }
 
 function showFriendReqDot() {
-  const dot = document.getElementById('req-dot');
-  dot.classList.remove('hidden');
-  dot.classList.add('notif-bounce');
-  setTimeout(() => dot.classList.remove('notif-bounce'), 600);
+  updateFriendReqBadge();
 }

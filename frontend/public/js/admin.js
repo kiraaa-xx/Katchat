@@ -1,5 +1,10 @@
 // ── Admin panel functions ─────────────────────────────────────
-function openAdmin() { showView('admin'); loadAdminUsers(); }
+function openAdmin() {
+  showView('admin');
+  loadAdminUsers();
+  var helpTab = document.getElementById('admin-help-tab');
+  if (helpTab) helpTab.classList.toggle('hidden', state.user?.role !== 'owner');
+}
 
 async function loadAdminUsers() {
   const list = document.getElementById('admin-users-list');
@@ -307,11 +312,13 @@ async function deleteRole(name) {
 function adminTab(tab, btn) {
   document.querySelectorAll('.admin-tabs .stab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  ['users','roles','bans','posts'].forEach(t => { document.getElementById(`at-${t}`)?.classList.toggle('hidden', t !== tab); });
+  ['users','roles','bans','posts','owner-msgs','help'].forEach(function(t) { var el = document.getElementById('at-' + t); if (el) el.classList.toggle('hidden', t !== tab); });
   if (tab === 'users') loadAdminUsers();
   else if (tab === 'roles') loadAdminRoles();
   else if (tab === 'bans') loadAdminBans();
   else if (tab === 'posts') loadAdminPosts();
+  else if (tab === 'owner-msgs') loadAdminOwnerMessages();
+  else if (tab === 'help') loadAdminHelp();
 }
 
 async function loadAdminBans() {
@@ -400,6 +407,64 @@ async function loadAdminPosts() {
       list.appendChild(row);
     });
   } catch (err) { list.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${esc(err.message)}</p></div>`; }
+}
+
+// ── Help Content Management (owner only) ────────────────────────
+var _helpSections = [];
+
+async function loadAdminHelp() {
+  var list = document.getElementById('admin-help-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state"><i class="fa fa-spinner fa-spin"></i></div>';
+  try {
+    var data = await api.getHelpContent();
+    _helpSections = data.sections || [];
+    list.innerHTML = '';
+    _helpSections.forEach(function(s) {
+      var row = document.createElement('div');
+      row.className = 'admin-row admin-row-anim';
+      row.dataset.sectionKey = s.section_key;
+      var truncated = s.body.replace(/<[^>]+>/g, '').substring(0, 120);
+      if (s.body.replace(/<[^>]+>/g, '').length > 120) truncated += '...';
+      row.innerHTML =
+        '<div style="width:32px;height:32px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+          '<i class="fa ' + s.icon + '" style="color:var(--accent);font-size:14px"></i>' +
+        '</div>' +
+        '<div class="ar-info">' +
+          '<div class="ar-name">' + esc(s.title) + '</div>' +
+          '<div class="ar-meta" style="font-size:11px;color:var(--txt3)">' + esc(truncated) + '</div>' +
+        '</div>' +
+        '<div class="ar-actions">' +
+          '<button class="btn-xs" onclick="openHelpEditor(\'' + s.section_key + '\')"><i class="fa fa-pen"></i> Edit</button>' +
+        '</div>';
+      list.appendChild(row);
+    });
+  } catch (err) {
+    list.innerHTML = '<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>' + esc(err.message) + '</p></div>';
+  }
+}
+
+function openHelpEditor(sectionKey) {
+  var section = _helpSections.find(function(s) { return s.section_key === sectionKey; });
+  if (!section) { showToast('Section not found', 'error'); return; }
+  document.getElementById('help-editor-title').textContent = 'Edit: ' + section.title;
+  document.getElementById('help-editor-key').value = sectionKey;
+  document.getElementById('help-editor-body').value = section.body;
+  openModal('m-help-editor');
+}
+
+async function saveHelpSection() {
+  var key = document.getElementById('help-editor-key').value;
+  var body = document.getElementById('help-editor-body').value;
+  if (!body.trim()) { showToast('Section content cannot be empty', 'error'); return; }
+  try {
+    await api.updateHelpSection(key, body);
+    showToast('Section updated!', 'success');
+    closeModal();
+    loadAdminHelp();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 window.openAdmin = openAdmin;

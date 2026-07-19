@@ -59,6 +59,17 @@ function initSocket(token) {
       state.unreadCounts[msg.sender_id] = (state.unreadCounts[msg.sender_id] || 0) + 1;
       updateUnreadBadge(msg.sender_id);
       showToast(`New message from ${msg.sender?.display_name || 'Someone'}`, 'info');
+      if (window.notificationSystem) {
+        const senderName = msg.sender?.display_name || msg.sender?.username || 'Someone';
+        const preview = msg.content || '📷 Image';
+        notificationSystem.notifyPrivateMessage(senderName, preview, function() {
+          var friend = state.friends?.find(function(f) { return f.id === msg.sender_id; });
+          if (!friend && msg.sender) {
+            friend = { id: msg.sender.id, display_name: msg.sender.display_name, username: msg.sender.username, profile_picture: msg.sender.profile_picture, is_online: false, last_seen: null };
+          }
+          if (friend) openPrivateChat(friend);
+        });
+      }
     }
     updateChatListPreview(msg.sender_id, msg.content, msg.created_at);
   });
@@ -127,8 +138,14 @@ function initSocket(token) {
   socket.on('friend_request_received', ({ from }) => {
     if (!state.friendRequestsReceived) state.friendRequestsReceived = [];
     state.friendRequestsReceived.push(from);
-    showFriendReqDot();
+    updateFriendReqBadge();
     showToast(`${from.display_name} sent you a friend request`, 'info');
+  });
+
+  socket.on('owner_reply_notification', (data) => {
+    if (typeof handleOwnerReplyNotification === 'function') {
+      handleOwnerReplyNotification(data);
+    }
   });
 
   socket.on('error', ({ message }) => showToast(message, 'error'));

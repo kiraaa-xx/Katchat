@@ -445,9 +445,16 @@ async function sendSage() {
       `${Math.floor(sageMessages.length/2)} exchanges`;
 
   } catch (err) {
+    // If the server is unreachable (network down / 5xx), surface Sage's
+    // friendly maintenance message rather than a raw error. The backend
+    // already returns this message in the normal success path when both
+    // providers fail, so this only covers transport-level failures.
     console.error('Error sending message to Sage:', err);
     document.getElementById('sage-thinking')?.remove();
-    const errorMsg = { role: 'assistant', content: '❌ Error: Could not reach Sage. Try again.' };
+    const errorMsg = {
+      role: 'assistant',
+      content: '⚠️ Sage is currently under maintenance. Please try again in a few minutes.'
+    };
     sageMessages.push(errorMsg);
     container.appendChild(makeSageMsgEl(errorMsg, sageMessages.length - 1));
     scrollToBottom('sage-msgs');

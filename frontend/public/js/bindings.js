@@ -32,6 +32,7 @@ if (window.__katchat_bindings_loaded__) {
     // Friends
     'openAddFriend', 'searchUsers', 'doSendFriendReq', 'doAcceptFriend',
     'doDeclineFriend', 'doRemoveFriend', 'doCancelFriendReq', 'loadFriends',
+    'switchFriendTab', 'clearFriendSearch',
     
     // Announcements
     'openAnnouncements', 'openAnnModal', 'submitAnnouncement', 'deleteAnn',
@@ -61,6 +62,12 @@ if (window.__katchat_bindings_loaded__) {
     
     // Help
     'openHelp', 'toggleHelpSection', 'toggleFaqItem', 'loadWelcomeAnnouncements',
+    
+    // Owner Messages
+    'openOwnerContact', 'sendOwnerContact', 'updateOwnerMsgCount',
+    'loadAdminOwnerMessages', 'markOwnerMsgRead', 'deleteOwnerMsg', 'openModal',
+    'openOwnerReplyBox', 'closeOwnerReplyBox', 'sendOwnerReply',
+    'handleOwnerReplyNotification', 'showOwnerReplyNotif', 'clearOwnerReplyNotif',
   ];
 
   /**
@@ -199,6 +206,7 @@ if (window.__katchat_bindings_loaded__) {
       // Admin
       'admin-users-list', 'admin-roles-list', 'admin-bans-list',
       'admin-posts-list', 'at-users', 'at-roles', 'at-bans', 'at-posts',
+      'at-owner-msgs', 'admin-owner-msgs-list', 'owner-msg-notif', 'owner-msg-count-display',
       
       // Settings
       'settings-av', 'set-name', 'set-gender', 'set-curr-pw',
@@ -208,6 +216,10 @@ if (window.__katchat_bindings_loaded__) {
       'overlay', 'm-friend', 'm-profile', 'm-ann', 'm-ann-detail', 'm-role', 'm-confirm',
       'friend-search-inp', 'ann-title', 'ann-content', 'ann-img-input',
       'role-name', 'role-color', 'role-icon',
+      
+      // Owner Contact
+      'm-contact-owner', 'owner-msg-input', 'owner-msg-count', 'owner-msg-status',
+      'owner-msg-inbox', 'owner-reply-notif',
       
       // UI
       'toast-wrap', 'swipe-hint', 'topbar-beam', 'topbar-zav',

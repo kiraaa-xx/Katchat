@@ -1,7 +1,29 @@
 // ── Help Center ─────────────────────────────────────────────
 
-function openHelp() {
+async function openHelp() {
   showView('help');
+  var container = document.getElementById('help-sections');
+  if (!container) return;
+
+  try {
+    var data = await api.getHelpContent();
+    var sections = data.sections || [];
+    if (sections.length) {
+      container.innerHTML = sections.map(function(s) {
+        return '<div class="help-section">' +
+          '<button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="false">' +
+            '<i class="fa ' + s.icon + '"></i> ' + esc(s.title) +
+            '<i class="fa fa-chevron-down help-arrow"></i>' +
+          '</button>' +
+          '<div class="help-section-body hidden">' +
+            '<div class="help-section-body-inner">' + s.body + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      return;
+    }
+  } catch {}
+  // Fallback: sections already rendered in HTML
 }
 
 function toggleHelpSection(btn) {
@@ -21,7 +43,6 @@ function toggleFaqItem(btn) {
   btn.setAttribute('aria-expanded', !isOpen);
 }
 
-// Load latest announcements for the welcome screen preview
 async function loadWelcomeAnnouncements() {
   try {
     const { announcements } = await api.getAnnouncements();

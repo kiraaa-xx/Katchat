@@ -74,6 +74,10 @@ function openSettings() {
   document.getElementById('bio-count').textContent = wc+'/20 words';
   document.documentElement.setAttribute('data-theme', u.theme || 'dark');
   document.getElementById('fast-mode-toggle').checked = localStorage.getItem('kc_fast_mode') === '1';
+  const pmNotif = document.getElementById('notif-pm-toggle');
+  if (pmNotif) pmNotif.checked = notificationSystem.isEnabled('pm');
+  const anNotif = document.getElementById('notif-announce-toggle');
+  if (anNotif) anNotif.checked = notificationSystem.isEnabled('announce');
   const isAdmin = state.roles.find(r => r.name === u.role)?.permissions?.canAccessAdminPanel;
   document.getElementById('admin-card').classList.toggle('hidden', !isAdmin);
   renderAccentColors();
@@ -107,12 +111,21 @@ async function changePassword() {
   } catch (err) { showToast(err.message, 'error'); }
 }
 
+function updateThemeLogos() {
+  const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+  document.querySelectorAll('.theme-logo').forEach(function (img) {
+    img.src = theme === 'light' ? 'assets/logo_black.png' : 'assets/logo.png';
+  });
+}
+window.updateThemeLogos = updateThemeLogos;
+
 function toggleTheme() {
   const curr = document.documentElement.getAttribute('data-theme');
   const next = curr === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   const meta = document.getElementById('theme-color-meta');
   if (meta) meta.content = next === 'light' ? '#ffffff' : '#0a0a0a';
+  updateThemeLogos();
   if (state.user) { state.user.theme = next; api.updateProfile({ theme: next }).catch(err => console.warn('theme update failed:', err)); }
 }
 
@@ -343,6 +356,13 @@ function toggleFastMode(enabled) {
   localStorage.setItem('kc_fast_mode', enabled ? '1' : '0');
 }
 
+function toggleNotif(type, enabled) {
+  if (window.notificationSystem && notificationSystem.setEnabled) {
+    notificationSystem.setEnabled(type, enabled);
+  }
+}
+window.toggleNotif = toggleNotif;
+
 // Apply fast mode on page load
 (function() {
   if (localStorage.getItem('kc_fast_mode') === '1') {
@@ -368,3 +388,11 @@ function toggleAbout(btn) {
 }
 
 window.toggleAbout = toggleAbout;
+
+// ── Contact Owner ────────────────────────────────────────────
+window.messageOwner = function() { openOwnerContact(); };
+
+window.emailOwner = function emailOwner() {
+  window.location.href = 'mailto:katchat369@gmail.com?subject=KatChat%20Support';
+}
+window.emailOwner = emailOwner;

@@ -1,5 +1,5 @@
-let allGlobalUsers = [];
-let mentionFocusIdx = -1;
+window.allGlobalUsers = window.allGlobalUsers || [];
+window.mentionFocusIdx = -1;
 
 async function openGlobal() {
   showView('global');

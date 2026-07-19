@@ -85,10 +85,14 @@ async function enterApp() {
   } catch {}
 
   updateTopbarAv();
+  updateThemeLogos();
   initSocket(state.token);
   await loadFriends();
   showView('welcome');
   loadWelcomeAnnouncements();
+  initWelcomeAnimations();
+  // Start announcement polling
+  startAnnouncementPoll();
   // Bottom nav is always visible — remove hidden class
   const bnav = document.getElementById('bottom-nav');
   if (bnav) bnav.classList.remove('hidden');
@@ -117,6 +121,47 @@ function startHeartbeat() {
   }, 30000);
 }
 
+// ── Announcement Polling ──────────────────────────────────────
+let _annPollInterval = null;
+
+function startAnnouncementPoll() {
+  stopAnnouncementPoll();
+  // Check immediately on start
+  checkNewAnnouncements();
+  // Then every 60 seconds
+  _annPollInterval = setInterval(checkNewAnnouncements, 60000);
+}
+
+function stopAnnouncementPoll() {
+  if (_annPollInterval) {
+    clearInterval(_annPollInterval);
+    _annPollInterval = null;
+  }
+}
+
+async function checkNewAnnouncements() {
+  if (!state.user || document.hidden) return;
+  try {
+    const { announcements } = await api.getAnnouncements();
+    if (!announcements || !announcements.length) return;
+    const latestId = Math.max(...announcements.map(a => a.id));
+    const lastSeen = parseInt(localStorage.getItem('kc_last_announcement_id') || '0', 10);
+    if (latestId > lastSeen) {
+      // Find new announcements (those with id > lastSeen)
+      const newOnes = announcements.filter(a => a.id > lastSeen);
+      newOnes.forEach(ann => {
+        if (window.notificationSystem && notificationSystem.isEnabled('announce')) {
+          notificationSystem.notifyAnnouncement(ann.title, ann.content, function() {
+            navTo('announcements');
+          });
+        }
+        showToast(`📢 New announcement: ${ann.title}`, 'info');
+      });
+      localStorage.setItem('kc_last_announcement_id', String(latestId));
+    }
+  } catch {}
+}
+
 // ── Resize handler ────────────────────────────────────────────
 window.addEventListener('resize', () => {
   if (window.innerWidth >= 769) {
@@ -132,22 +177,76 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ── Page visibility (mark offline when tab hidden on mobile) ──
+// ── Page visibility (pause animations, rejoin rooms) ──
 document.addEventListener('visibilitychange', () => {
-  if (!socket) return;
+  var hero = document.querySelector('.welcome-hero');
+  if (hero) hero.classList.toggle('anim-paused', document.hidden);
   if (document.hidden) {
-    // Tab/app went to background — do nothing, socket handles disconnect
+    if (_sparkleTimer) clearInterval(_sparkleTimer);
   } else {
-    // Tab came back — rejoin rooms
-    if (socket.connected) {
-      socket.emit('join_global');
-      if (activeFriend) {
-        const convId = [state.user.id, activeFriend.id].sort().join('_');
-        socket.emit('join_conversation', { conversationId: convId });
-      }
+    startWelcomeSparkles();
+  }
+  if (!socket) return;
+  if (!document.hidden && socket.connected) {
+    socket.emit('join_global');
+    if (activeFriend) {
+      const convId = [state.user.id, activeFriend.id].sort().join('_');
+      socket.emit('join_conversation', { conversationId: convId });
     }
+    checkNewAnnouncements();
   }
 });
+
+// ── Welcome Animation Init ───────────────────────────────────
+function initWelcomeAnimations() {
+  spawnWelcomeParticles();
+  startWelcomeSparkles();
+  initWelcomeParallax();
+}
+
+function spawnWelcomeParticles() {
+  var container = document.getElementById('welcome-particles');
+  if (!container || container.dataset.spawned) return;
+  container.dataset.spawned = '1';
+  var count = window.innerWidth < 768 ? 5 : 8;
+  for (var i = 0; i < count; i++) {
+    var p = document.createElement('div');
+    p.className = 'welcome-particle';
+    p.style.cssText = 'left:' + (15 + Math.random() * 70) + '%;top:' + (20 + Math.random() * 60) + '%;--dx:' + ((Math.random() - 0.5) * 80) + 'px;--dy:' + ((Math.random() - 0.5) * 80) + 'px;animation-duration:' + (8 + Math.random() * 10) + 's;animation-delay:' + (Math.random() * 6) + 's;width:' + (1.5 + Math.random() * 2) + 'px;height:' + (1.5 + Math.random() * 2) + 'px';
+    container.appendChild(p);
+  }
+}
+
+var _sparkleTimer = null;
+
+function startWelcomeSparkles() {
+  var container = document.getElementById('welcome-sparkles');
+  if (!container) return;
+  if (_sparkleTimer) clearInterval(_sparkleTimer);
+  _sparkleTimer = setInterval(function () {
+    if (document.hidden) return;
+    var s = document.createElement('div');
+    s.className = 'welcome-sparkle';
+    s.style.cssText = 'left:' + (35 + Math.random() * 30) + '%;top:' + (28 + Math.random() * 24) + '%;animation-duration:' + (1.2 + Math.random() * 1) + 's';
+    container.appendChild(s);
+    s.addEventListener('animationend', function () { s.remove(); });
+  }, 3000);
+}
+
+function initWelcomeParallax() {
+  var welcome = document.getElementById('v-welcome');
+  var glow = document.getElementById('welcome-glow');
+  if (!welcome || !glow) return;
+  welcome.addEventListener('mousemove', function (e) {
+    var rect = welcome.getBoundingClientRect();
+    var x = (e.clientX - rect.left) / rect.width - 0.5;
+    var y = (e.clientY - rect.top) / rect.height - 0.5;
+    glow.style.transform = 'translate(calc(-50% + ' + (x * 16) + 'px),calc(-60% + ' + (y * 12) + 'px))';
+  });
+  welcome.addEventListener('mouseleave', function () {
+    glow.style.transform = '';
+  });
+}
 
 // ── Boot ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', initApp);

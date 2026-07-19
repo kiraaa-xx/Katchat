@@ -53,14 +53,7 @@ if (window.__katchat_fixes_loaded__) {
    * Show/hide mention dropdown
    */
   window.showMentionDropdown = window.showMentionDropdown || function(query) {
-    try {
-      if (typeof arguments.callee.showMentionDropdown === 'function') {
-        return arguments.callee.showMentionDropdown(query);
-      }
-      logError('showMentionDropdown', 'Function not defined in global.js');
-    } catch (err) {
-      logError('showMentionDropdown', err);
-    }
+    logError('showMentionDropdown', 'Function not defined in global.js');
   };
 
   window.hideMentionDropdown = window.hideMentionDropdown || function() {
@@ -397,10 +390,9 @@ if (window.__katchat_fixes_loaded__) {
   };
 
   // ===== GLOBAL STATE INITIALIZERS =====
-  
-  window.mentionFocusIdx = -1;
-  window.globalReplyToMsg = null;
-  window.allGlobalUsers = [];
+  // These are initialized by global.js / state.js via window properties.
+  // Window assignments here would shadow those, so keep this empty.
+  // The actual initialization happens in the respective module files.
 
   console.log('✅ KatChat production fixes loaded successfully');
 }

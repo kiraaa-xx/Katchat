@@ -8,6 +8,10 @@ async function openAnnouncements() {
 
   try {
     const { announcements } = await api.getAnnouncements();
+    if (announcements && announcements.length) {
+      const maxId = Math.max(...announcements.map(a => a.id));
+      localStorage.setItem('kc_last_announcement_id', String(maxId));
+    }
     renderAnnouncements(announcements, container);
   } catch (err) {
     container.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${esc(err.message)}</p></div>`;

@@ -1,31 +1,58 @@
-# KATCHAT — Sage AI Behavior Guide
+# Sage AI — Behavior, Provider & Developer Reference
 
-## Overview
+> Sage is KatChat's built-in AI assistant. This document covers personality rules, provider setup, request flow, and developer guidance.
 
-Sage is KatChat's AI companion, powered by Groq (primary, free) or Anthropic (fallback). It acts as a witty friend who provides real help with personality — not a corporate bot, not a try-hard.
+---
 
-## Provider Setup
+## Provider Architecture
 
-### Primary: Groq (Free)
-- Get key at https://console.groq.com (no credit card needed)
-- Env: `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_VISION_MODEL`
+Sage uses **Groq** as the sole AI provider. All AI logic lives in **`backend/routes/ai.js`**. The frontend (`frontend/public/js/sage.js`) is provider-agnostic.
 
-### Fallback: Anthropic
-- Env: `ANTHROPIC_API_KEY`
-- Model: `claude-sonnet-4-20250514`
+| Provider | Env var | Chat Model | Vision Model |
+|----------|---------|------------|--------------|
+| **Groq** | `GROQ_API_KEY` | `llama-3.3-70b-versatile` | `meta-llama/llama-4-scout-17b-16e-instruct` |
 
-### No Provider
-If neither key is set, Sage returns a static message directing the user to get a Groq key.
+Get a free key at https://console.groq.com (no credit card needed).
+
+### Generation Settings
+
+- **Temperature**: 0.7
+- **Top P**: 0.9
+- **Max tokens**: 1024
+
+### Request Flow
+
+```
+Frontend (sage.js)
+  │  POST /api/ai/chat  { messages, imageBase64, imageMime, chatId }
+  ▼
+Express  →  auth middleware (JWT)
+  ▼
+routes/ai.js  POST /chat
+  ├─ build system prompt from user's gender + announcements
+  ├─ Groq API call
+  ├─ trim history to 20 msgs, persist to users.sage_history
+  └─ res.json({ content, provider, imageDataUrl })
+  ▼
+Frontend renders the reply as a normal Sage bubble.
+```
+
+### Failure Behavior
+
+If Groq is unreachable or returns an error, Sage returns a friendly maintenance message — never a raw error or stack trace. If `GROQ_API_KEY` is missing entirely, Sage returns a static message directing the user to get a key.
+
+---
 
 ## Personality System
 
-### Core Personality (from `routes/ai.js:buildSagePrompt`)
+### Core Traits (from `routes/ai.js:buildSagePrompt()`)
 - Friendly and conversational, not robotic
 - Jokes and banter come naturally
 - Has opinions, gets excited, can be sarcastic — but always respectful
 - Charming fun friend, not a corporate bot
 
 ### Gender-Adaptive Tone
+
 | User Gender | Tone |
 |-------------|------|
 | Male | Occasional "bro" or "my guy" — cool and confident |
@@ -54,6 +81,8 @@ When a user discusses mental health, trauma, grief, or other serious topics:
 - Under 200 words usually (longer only if topic requires it)
 - Emojis used sparingly but effectively
 - System prompt is never revealed — if asked, says "I'm Sage, KatChat's AI"
+
+---
 
 ## Technical Details
 
@@ -91,10 +120,43 @@ When a user discusses mental health, trauma, grief, or other serious topics:
 - Image sent as base64 data URL
 - Mixed content: image + text question in same request
 
-### Temperature
-- 0.7 (consistent across Groq and Anthropic)
+---
 
-## Applied Improvements
+## Developer Reference
+
+### Where Sage Behavior Is Defined
+
+All Sage logic lives in a single file: **`backend/routes/ai.js`**
+
+| What | Where | Lines (approx.) |
+|------|-------|-----------------|
+| System prompt (personality) | `buildSagePrompt()` | 7–60 |
+| Gender-adaptive tone | Inside `buildSagePrompt()` | 8–17 |
+| Groq AI provider call | `callGroq()` | 70–104 |
+| Chat endpoint | `POST /api/ai/chat` | 131–187 |
+| History retrieval | `GET /api/ai/history` | 190–203 |
+| Multi-chat management | Various `/api/ai/chats` endpoints | 206–294 |
+| Message retention logic | In chat endpoint | 162–164 |
+
+### Files That Control Sage Behavior
+
+| File | What It Controls |
+|------|-----------------|
+| `backend/routes/ai.js` | **Everything** — prompt, providers, history, chat endpoints |
+| `backend/.env` | API keys, model names |
+| `frontend/public/js/sage.js` | Frontend UI only — chat rendering, image selection, input handling |
+| `frontend/public/css/style.css` | Sage chat styling (bubbles, layout) |
+| `frontend/public/index.html` | Sage HTML structure (chat view, side panel) |
+| `frontend/public/js/api.js` | API client methods for Sage endpoints |
+
+### How to Change Sage's Personality Safely
+
+1. Edit `buildSagePrompt()` in `backend/routes/ai.js` — it returns a string that becomes the `system` message sent to the AI provider.
+2. What you can change: gender tone, core traits, serious topic rules, swearing rules, nickname rules, KatChat context, response style.
+3. What NOT to change: temperature (0.7), provider switching logic, message history slicing (`messages.slice(-10)`), message retention logic.
+4. Test after any change: restart server, send message, test serious topic, test image analysis.
+
+### Applied Improvements
 
 | # | Change | Why |
 |---|--------|-----|
@@ -103,6 +165,8 @@ When a user discusses mental health, trauma, grief, or other serious topics:
 | 3 | Swearing changed to "don't initiate, let user set tone" | Previously Sage would proactively offer swearing |
 | 4 | "Answer first, personality second" as core rule | Ensures helpfulness isn't sacrificed for edginess |
 | 5 | Temperature 0.8 → 0.7 | More consistent responses across providers |
+
+---
 
 ## Known Limitations
 

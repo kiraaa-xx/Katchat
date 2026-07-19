@@ -1,7 +1,0 @@
-[
-  {
-    "bugId": "BUG-1",
-    "response": "ACCEPT",
-    "analysisSummary": "Re-read all relevant code. state.js:13: `let activeFriend = null;` — top-level `let` in `<script defer>` creates a global lexical binding, NOT a window property. index.html:266: `onclick=\"openProfile(window.activeFriend)\"` — inline HTML handlers execute in global scope where `window.activeFriend` is always `undefined` because `activeFriend` is a `let` binding, not a `window` property. ui.js:217-218: `async function openProfile(user) { if (!user) return; }` — confirms `undefined` input causes silent early return. Fix: change `window.activeFriend` to `activeFriend` (bare name resolves from global lexical scope). Confirmed real bug."
-  }
-]

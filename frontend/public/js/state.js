@@ -10,9 +10,11 @@ const state = {
 };
 
 // Per-session variables
+// NOTE: globalReplyToMsg is intentionally a window property (not a let) so
+// that fallback handlers in fixes.js and the real handlers in global.js
+// share the same reference. Do NOT add a let declaration for it here.
 let activeFriend = null;
 let replyToMsg = null;
-let globalReplyToMsg = null;
 let selectedImages = [];
 let typingTimer = null;
 let sageMessages = [];
