@@ -1,58 +1,73 @@
-# KatChat — Real-Time Chat with AI Assistant
+## Katchat
 
-Full-stack real-time messaging platform with Sage AI, global chat, private messaging, role management, announcements, and a mobile-first UI.
+KatChat is a real time chat application with built in AI assistance. It includes global and private messaging, announcements, user roles, and a responsive interface designed for desktop and mobile.
+- For guidance: Chat GPT
+- Intial coding/devloping: Claude Sonnet
+- Further developing/add new features: IDE's like Antigaravity, Opencode(Deepseek V4 Flashh)
 
----
+
+## Features
+
+- Real-time global and private chat
+- Sage AI assistant(Don't give current news/answer)
+- User authentication
+- Role-based permissions
+- Announcements
+- Mobile-friendly interface
 
 ## Requirements
+- Node.js 16+
+- npm
+- Supabase project
+- Groq API key
 
-- **Node.js** v16+
-- **npm**
-- **Supabase** account (free at https://supabase.com)
-- **Groq** API key (free at https://console.groq.com)
-
----
-
-## Quick Start
+## Getting Started
 
 ```bash
-# 1. Install backend dependencies
+# clone the repository
+git clone <repository-url>
+cd KatChat
+
+# install dependencies
 cd backend
 npm install
 
-# 2. Set up environment variables
-# Copy .env.example to .env and fill in your credentials:
-#   SUPABASE_URL, SUPABASE_SERVICE_KEY, JWT_SECRET, GROQ_API_KEY
+# create your environment file
 cp .env.example .env
 
-# 3. Initialize the database
-# Go to your Supabase Dashboard → SQL Editor → run backend/schema.sql
+# run backend/schema.sql in the Supabase SQL Editor
 
-# 4. Start the development server
+# start the server
 npm run dev
 ```
 
-Open **http://localhost:5000** in your browser.
-
----
+Open http://localhost:5000 in your browser.
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PORT` | No | `5000` | HTTP server port |
-| `SUPABASE_URL` | **Yes** | — | Project URL from Supabase dashboard |
-| `SUPABASE_SERVICE_KEY` | **Yes** | — | `service_role` secret key (not anon) |
-| `JWT_SECRET` | **Yes** | — | Random hex string for token signing |
-| `GROQ_API_KEY` | **Yes** | — | Free key from https://console.groq.com |
-| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq chat model |
-| `GROQ_VISION_MODEL` | No | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq vision model |
-| `ADMIN_LOG_TOKEN` | No | — | Secret token for `GET /api/logs` |
+Required:
 
-## Owner Access
+- SUPABASE_URL
+- SUPABASE_SERVICE_KEY
+- JWT_SECRET
+- GROQ_API_KEY
 
-Sign up with email `katchat369@gmail.com` to receive the **Owner** role automatically.
+Optional:
 
----
+- PORT (default: 5000)
+- GROQ_MODEL
+- GROQ_VISION_MODEL
+- ADMIN_LOG_TOKEN
 
-For full project details, see **CONTEXT.md**. For deployment, see **DEPLOYMENT_GUIDE.md**.
+## Owner Account
+
+Register with:
+
+``katchat369@gmail.com``
+
+The account will automatically receive the Owner role.
+
+## Project
+
+- `CONTEXT.md` contains project details.
+- `DEPLOYMENT_GUIDE.md` contains deployment instructions.
