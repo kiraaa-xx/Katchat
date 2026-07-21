@@ -215,15 +215,15 @@
   <div class="app-body" id="app-body">
 
     <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" aria-label="Conversations and friends">
       <div class="sidebar-search">
         <i class="fa fa-search"></i>
         <input type="text" id="sidebar-search-inp" placeholder="Search chats..." oninput="filterChats(this.value)">
         <button class="clear-search hidden" id="clear-search" onclick="clearSearch()"><i class="fa fa-times"></i></button>
       </div>
-      <div class="sidebar-tabs">
-        <button class="stab active" data-tab="chats" onclick="switchTab('chats',this)">Chats</button>
-        <button class="stab" data-tab="friends" onclick="switchTab('friends',this)">Friends</button>
+      <div class="sidebar-tabs" role="tablist">
+        <button class="stab active" data-tab="chats" onclick="switchTab('chats',this)" role="tab" aria-selected="true">Chats</button>
+        <button class="stab" data-tab="friends" onclick="switchTab('friends',this)" role="tab" aria-selected="false">Friends</button>
       </div>
       <div id="tab-chats" class="tab-content">
         <div class="sidebar-quick">
@@ -242,7 +242,7 @@
     <main class="main-area" id="main-content" role="main" aria-label="Chat Area" aria-live="polite">
 
       <!-- WELCOME -->
-      <div id="v-welcome" class="view active">
+      <div id="v-welcome" class="view active" role="region" aria-label="Welcome">
         <div class="welcome-hero" aria-hidden="true">
           <div class="welcome-glow" id="welcome-glow"></div>
           <div class="welcome-aurora"></div>
@@ -267,11 +267,11 @@
       </div>
 
       <!-- PRIVATE CHAT -->
-      <div id="v-chat" class="view hidden">
+      <div id="v-chat" class="view hidden" role="region" aria-label="Private chat">
         <div class="chat-header" id="chat-header">
           <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
           <div class="ch-av-wrap">
-            <div class="av md" id="ch-avatar"></div>
+            <div class="av md" id="ch-avatar" onclick="openProfile(activeFriend)" style="cursor:pointer"></div>
             <span class="ch-online-dot hidden" id="ch-online-dot"></span>
           </div>
           <div class="ch-info">
@@ -279,7 +279,21 @@
             <span class="ch-status" id="ch-status"></span>
           </div>
           <div class="ch-actions">
+            <button class="icon-btn chat-search-btn" onclick="openChatSearch()" title="Search messages"><i class="fa fa-search"></i></button>
             <button class="icon-btn" onclick="openProfile(activeFriend)" title="Profile"><i class="fa fa-user"></i></button>
+          </div>
+        </div>
+        <div class="ch-search-bar hidden" id="ch-search-bar">
+          <div class="ch-search-input-wrap">
+            <i class="fa fa-search"></i>
+            <input type="text" id="ch-search-input" placeholder="Search messages..." oninput="searchPrivateChat(this.value)" autocomplete="off">
+            <button class="ch-search-clear" onclick="closeChatSearch()" title="Close search"><i class="fa fa-times"></i></button>
+          </div>
+          <div class="ch-search-meta hidden" id="ch-search-meta">
+            <span id="ch-search-count">0/0</span>
+            <button onclick="prevChatMatch()" title="Previous match"><i class="fa fa-chevron-up"></i></button>
+            <button onclick="nextChatMatch()" title="Next match"><i class="fa fa-chevron-down"></i></button>
+            <button onclick="closeChatSearch()" title="Close search"><i class="fa fa-times"></i></button>
           </div>
         </div>
         <div class="msgs-wrap" id="priv-msgs" data-swipe-container="true"></div>
@@ -292,18 +306,25 @@
           <button onclick="cancelReply()"><i class="fa fa-times"></i></button>
         </div>
         <div class="img-previews hidden" id="img-previews"></div>
-        <div class="input-bar">
-          <button class="icon-btn" onclick="document.getElementById('img-input').click()" title="Images"><i class="fa fa-image"></i></button>
-          <input type="file" id="img-input" multiple accept="image/*" onchange="handleImgSelect(this)" hidden>
-          <div class="input-grow">
-            <textarea id="priv-input" placeholder="Message..." rows="1" onkeydown="privKey(event)" oninput="privInput(this)"></textarea>
+        <div id="upload-progress-container" class="hidden" style="position:relative;flex-shrink:0;margin:4px 12px 0">
+          <div class="upload-progress-overlay">
+            <div class="upload-progress-label"><span class="upload-progress-spinner"></span> <span id="upload-progress-text">Uploading...</span></div>
+            <div class="upload-progress-bar-wrap"><div class="upload-progress-bar" id="upload-progress-bar" style="width:0%"></div></div>
+            <button class="upload-retry-btn hidden" id="upload-retry-btn"><i class="fa fa-refresh"></i> Retry</button>
           </div>
-          <button class="send-btn" onclick="sendPrivate()" id="priv-send-btn"><i class="fa fa-paper-plane"></i></button>
+        </div>
+        <div class="input-bar">
+          <button class="icon-btn" onclick="document.getElementById('img-input').click()" title="Images" aria-label="Attach images"><i class="fa fa-image"></i></button>
+          <input type="file" id="img-input" multiple accept="image/*" onchange="handleImgSelect(this)" hidden aria-hidden="true">
+          <div class="input-grow">
+            <textarea id="priv-input" placeholder="Message..." rows="1" onkeydown="privKey(event)" oninput="privInput(this)" aria-label="Message input"></textarea>
+          </div>
+          <button class="send-btn" onclick="sendPrivate()" id="priv-send-btn" aria-label="Send message"><i class="fa fa-paper-plane"></i></button>
         </div>
       </div>
 
       <!-- GLOBAL CHAT -->
-      <div id="v-global" class="view hidden">
+      <div id="v-global" class="view hidden" role="region" aria-label="Global chat">
         <div class="chat-header">
           <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
           <div class="global-icon"><i class="fa fa-globe"></i></div>
@@ -321,16 +342,16 @@
         <div id="global-input-area">
           <div class="input-bar">
             <div class="input-grow">
-              <textarea id="global-input" placeholder="Message everyone... (@mention, /command)" rows="1" onkeydown="globalKey(event)" oninput="globalInput(this)"></textarea>
+              <textarea id="global-input" placeholder="Message everyone... (@mention, /command)" rows="1" onkeydown="globalKey(event)" oninput="globalInput(this)" aria-label="Global chat input"></textarea>
             </div>
-            <button class="send-btn" onclick="sendGlobal()"><i class="fa fa-paper-plane"></i></button>
+            <button class="send-btn" onclick="sendGlobal()" aria-label="Send to global chat"><i class="fa fa-paper-plane"></i></button>
           </div>
         </div>
         <div class="banned-bar hidden" id="banned-bar"><i class="fa fa-ban"></i> You are banned from global chat</div>
       </div>
 
       <!-- ANNOUNCEMENTS -->
-      <div id="v-announcements" class="view hidden">
+      <div id="v-announcements" class="view hidden" role="region" aria-label="Announcements">
         <div class="chat-header">
           <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
           <div class="global-icon"><i class="fa fa-bullhorn"></i></div>
@@ -341,7 +362,7 @@
       </div>
 
       <!-- HELP CENTER -->
-      <div id="v-help" class="view hidden">
+      <div id="v-help" class="view hidden" role="region" aria-label="Help center">
         <div class="chat-header">
           <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
           <span class="ch-name"><i class="fa fa-circle-question"></i> Help Center</span>
@@ -359,95 +380,140 @@
       </div>
 
       <!-- SETTINGS -->
-      <div id="v-settings" class="view hidden">
+      <div id="v-settings" class="view hidden" role="region" aria-label="Settings">
         <div class="chat-header">
           <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
           <span class="ch-name">Settings</span>
         </div>
         <div class="settings-scroll">
           <div class="settings-hero">
-            <div class="settings-av-wrap">
-              <div class="av xl" id="settings-av" onclick="document.getElementById('av-upload').click()"></div>
-              <div class="av-edit-overlay" onclick="document.getElementById('av-upload').click()"><i class="fa fa-camera"></i></div>
-              <input type="file" id="av-upload" accept="image/*" onchange="handleAvatarUpload(this)" hidden>
-            </div>
-            <div class="settings-hero-info">
-              <span class="sh-name" id="sh-name"></span>
-              <span class="sh-username" id="sh-username"></span>
-              <span id="sh-role-badge"></span>
-              <span class="sh-pronouns" id="sh-pronouns"></span>
+            <div class="settings-hero-bg" aria-hidden="true"></div>
+            <div class="settings-hero-inner">
+              <div class="sh-left">
+                <div class="settings-av-wrap">
+                  <div class="av xl" id="settings-av" onclick="document.getElementById('av-upload').click()"></div>
+                  <div class="av-edit-overlay" onclick="document.getElementById('av-upload').click()"><i class="fa fa-camera"></i></div>
+                  <input type="file" id="av-upload" accept="image/*" onchange="handleAvatarUpload(this)" hidden>
+                </div>
+                <span class="sh-status"><span class="sh-status-dot" id="sh-status-dot"></span><span id="sh-status-text">Online</span></span>
+                <span class="sh-name" id="sh-name"></span>
+                <span class="sh-username" id="sh-username"></span>
+                <span id="sh-role-badge"></span>
+                <span class="sh-pronouns" id="sh-pronouns"></span>
+              </div>
+              <div class="sh-right">
+                <div class="sh-bio" id="sh-bio"></div>
+                <div class="sh-meta">
+                  <span class="sh-joined" id="sh-joined-date"></span>
+                  <span class="sh-email" id="sh-email"></span>
+                </div>
+                <div class="sh-stats" id="sh-stats">
+                  <div class="sh-stat-item"><span class="sh-stat-num" id="sh-stat-friends">0</span><span class="sh-stat-label">Friends</span></div>
+                  <div class="sh-stat-divider"></div>
+                  <div class="sh-stat-item"><span class="sh-stat-num" id="sh-stat-ann">0</span><span class="sh-stat-label">Posts</span></div>
+                  <div class="sh-stat-divider"></div>
+                  <div class="sh-stat-item"><span class="sh-stat-num" id="sh-stat-age">—</span><span class="sh-stat-label">Account Age</span></div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="settings-sections">
-            <div class="settings-card">
-              <h3><i class="fa fa-user"></i> Profile</h3>
-              <div class="form-group"><label>Display Name</label><div class="field-wrap"><input type="text" id="set-name" placeholder="Your display name"></div></div>
-              <div class="form-group"><label>Bio <span style="color:var(--txt3);font-weight:400">(max 20 words)</span></label>
-                <div class="field-wrap"><textarea id="set-bio" class="bio-textarea" placeholder="Tell others about yourself..." maxlength="200" rows="2" oninput="updateBioCount()"></textarea></div>
-                <span id="bio-count" style="font-size:10px;color:var(--txt3)">0/20 words</span>
+            <!-- PROFILE (collapsible) -->
+            <div class="settings-section">
+              <button class="settings-section-head" onclick="toggleSettingsSection(this)" aria-expanded="false">
+                <i class="fa fa-user"></i> Profile
+                <i class="fa fa-chevron-down ss-arrow"></i>
+              </button>
+              <div class="settings-section-body hidden">
+                <div class="form-group"><label>Display Name</label><div class="field-wrap"><input type="text" id="set-name" placeholder="Your display name"></div></div>
+                <div class="form-group"><label>Bio <span style="color:var(--txt3);font-weight:400">(max 20 words)</span></label>
+                  <div class="field-wrap"><textarea id="set-bio" class="bio-textarea" placeholder="Tell others about yourself..." maxlength="200" rows="2" oninput="updateBioCount()"></textarea></div>
+                  <span id="bio-count" style="font-size:10px;color:var(--txt3)">0/20 words</span>
+                </div>
+                <div class="form-group"><label>Gender</label>
+                  <select id="set-gender" class="field-select">
+                    <option value="male">Male (he/him)</option>
+                    <option value="female">Female (she/her)</option>
+                    <option value="non-binary">Non-binary (they/them)</option>
+                    <option value="prefer-not-to-say">Prefer not to say (they/them)</option>
+                  </select>
+                </div>
+                <button class="btn-secondary" onclick="saveProfile()"><i class="fa fa-save"></i> Save Profile</button>
               </div>
-              <div class="form-group"><label>Gender</label>
-                <select id="set-gender" class="field-select">
-                  <option value="male">Male (he/him)</option>
-                  <option value="female">Female (she/her)</option>
-                  <option value="non-binary">Non-binary (they/them)</option>
-                  <option value="prefer-not-to-say">Prefer not to say (they/them)</option>
-                </select>
+            </div>
+            <!-- SECURITY (collapsible) -->
+            <div class="settings-section">
+              <button class="settings-section-head" onclick="toggleSettingsSection(this)" aria-expanded="false">
+                <i class="fa fa-lock"></i> Security
+                <i class="fa fa-chevron-down ss-arrow"></i>
+              </button>
+              <div class="settings-section-body hidden">
+                <div class="form-group"><label>Current Password</label><div class="field-wrap"><input type="password" id="set-curr-pw" placeholder="Current password"></div></div>
+                <div class="form-group"><label>New Password</label><div class="field-wrap"><input type="password" id="set-new-pw" placeholder="New password (min 8 chars)"></div></div>
+                <button class="btn-secondary" onclick="changePassword()"><i class="fa fa-key"></i> Change Password</button>
               </div>
-              <button class="btn-secondary" onclick="saveProfile()"><i class="fa fa-save"></i> Save Profile</button>
             </div>
-            <div class="settings-card">
-              <h3><i class="fa fa-lock"></i> Security</h3>
-              <div class="form-group"><label>Current Password</label><div class="field-wrap"><input type="password" id="set-curr-pw" placeholder="Current password"></div></div>
-              <div class="form-group"><label>New Password</label><div class="field-wrap"><input type="password" id="set-new-pw" placeholder="New password (min 8 chars)"></div></div>
-              <button class="btn-secondary" onclick="changePassword()"><i class="fa fa-key"></i> Change Password</button>
-            </div>
-            <div class="settings-card">
-              <h3><i class="fa fa-palette"></i> Appearance</h3>
-              <div class="theme-row">
-                <span>Theme</span>
-                <div class="theme-toggle" onclick="toggleTheme()" id="theme-toggle">
-                  <div class="theme-knob"></div>
-                  <i class="fa fa-moon t-left"></i>
-                  <i class="fa fa-sun t-right"></i>
+            <!-- APPEARANCE (collapsible) -->
+            <div class="settings-section">
+              <button class="settings-section-head" onclick="toggleSettingsSection(this)" aria-expanded="false">
+                <i class="fa fa-palette"></i> Appearance
+                <i class="fa fa-chevron-down ss-arrow"></i>
+              </button>
+              <div class="settings-section-body hidden">
+                <div class="theme-row">
+                  <span>Theme</span>
+                  <div class="theme-toggle" onclick="toggleTheme()" id="theme-toggle">
+                    <div class="theme-knob"></div>
+                    <i class="fa fa-moon t-left"></i>
+                    <i class="fa fa-sun t-right"></i>
+                  </div>
+                </div>
+                <div class="theme-row" style="margin-top:14px">
+                  <div>
+                    <span>Fast mode</span>
+                    <p style="font-size:11px;color:var(--txt3);margin-top:2px">Disables animations for low-end devices</p>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="fast-mode-toggle" onchange="toggleFastMode(this.checked)">
+                    <span class="switch-slider"></span>
+                  </label>
                 </div>
               </div>
-              <div class="theme-row" style="margin-top:14px">
-                <div>
-                  <span>Fast mode</span>
-                  <p style="font-size:11px;color:var(--txt3);margin-top:2px">Disables animations for low-end devices</p>
+            </div>
+            <!-- NOTIFICATIONS (collapsible) -->
+            <div class="settings-section">
+              <button class="settings-section-head" onclick="toggleSettingsSection(this)" aria-expanded="false">
+                <i class="fa fa-bell"></i> Notifications
+                <i class="fa fa-chevron-down ss-arrow"></i>
+              </button>
+              <div class="settings-section-body hidden">
+                <div class="theme-row">
+                  <span>Private Messages</span>
+                  <label class="switch">
+                    <input type="checkbox" id="notif-pm-toggle" onchange="toggleNotif('pm', this.checked)">
+                    <span class="switch-slider"></span>
+                  </label>
                 </div>
-                <label class="switch">
-                  <input type="checkbox" id="fast-mode-toggle" onchange="toggleFastMode(this.checked)">
-                  <span class="switch-slider"></span>
-                </label>
+                <div class="theme-row" style="margin-top:10px">
+                  <span>Announcements</span>
+                  <label class="switch">
+                    <input type="checkbox" id="notif-announce-toggle" onchange="toggleNotif('announce', this.checked)">
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
               </div>
             </div>
-            <div class="settings-card" id="notifications-card">
-              <h3><i class="fa fa-bell"></i> Notifications</h3>
-              <div class="theme-row">
-                <span>Private Messages</span>
-                <label class="switch">
-                  <input type="checkbox" id="notif-pm-toggle" onchange="toggleNotif('pm', this.checked)">
-                  <span class="switch-slider"></span>
-                </label>
-              </div>
-              <div class="theme-row" style="margin-top:10px">
-                <span>Announcements</span>
-                <label class="switch">
-                  <input type="checkbox" id="notif-announce-toggle" onchange="toggleNotif('announce', this.checked)">
-                  <span class="switch-slider"></span>
-                </label>
-              </div>
-            </div>
+            <!-- ACCENT COLOR (always visible) -->
             <div class="settings-card">
               <h3><i class="fa fa-palette"></i> Accent Color</h3>
               <div class="accent-grid" id="accent-grid"></div>
             </div>
+            <!-- ADMIN (always visible) -->
             <div class="settings-card hidden" id="admin-card">
               <h3><i class="fa fa-shield-halved"></i> Administration</h3>
               <button class="btn-secondary" onclick="navTo('admin')"><i class="fa fa-cog"></i> Open Admin Panel</button>
             </div>
+            <!-- CONTACT OWNER (always visible) -->
             <div class="settings-card contact-card">
               <h3><i class="fa fa-envelope"></i> Contact Owner</h3>
               <p class="contact-text">Need help? Reach out directly to the owner.</p>
@@ -456,18 +522,7 @@
                 <button class="btn-secondary contact-btn" onclick="emailOwner()"><i class="fa fa-envelope"></i> Email Owner</button>
               </div>
             </div>
-            <div class="settings-card about-card">
-              <h3><i class="fa fa-circle-info" aria-hidden="true"></i> About KatChat</h3>
-              <p class="about-text">KatChat is a premium real-time messaging platform. Built for speed, privacy, and beautiful design.</p>
-              <button class="about-read-more" onclick="toggleAbout(this)" aria-expanded="false">
-                <i class="fa fa-chevron-down" aria-hidden="true"></i> Read more
-              </button>
-              <div class="about-text-full" aria-hidden="true">
-                <p class="about-text" style="margin-top:10px">KatChat offers private messaging, a global chat room, AI assistant Sage, custom roles, announcements with comments, and a powerful admin panel — all in a beautifully minimal design.</p>
-                <p class="about-text" style="margin-top:8px"><strong>Forgot your password?</strong> Contact an admin or the owner through <a href="mailto:katchat369@gmail.com" style="color:var(--accent)">katchat369@gmail.com</a> to reset it via the Admin Panel.</p>
-                <p class="about-text" style="margin-top:8px;color:var(--txt3)">KatChat is built with Node.js, Supabase &amp; Socket.io · Version 2.0</p>
-              </div>
-            </div>
+            <!-- SIGN OUT (always visible) -->
             <div class="settings-card danger-card">
               <h3><i class="fa fa-right-from-bracket"></i> Account</h3>
               <button class="btn-danger" onclick="confirmLogout()"><i class="fa fa-right-from-bracket"></i> Sign Out</button>
@@ -477,19 +532,19 @@
       </div>
 
       <!-- ADMIN PANEL -->
-      <div id="v-admin" class="view hidden">
+      <div id="v-admin" class="view hidden" role="region" aria-label="Admin panel">
         <div class="chat-header">
           <button class="back-btn" onclick="goBack()"><i class="fa fa-arrow-left"></i></button>
           <span class="ch-name"><i class="fa fa-shield-halved" style="color:var(--cyan)"></i> Admin Panel</span>
         </div>
         <div class="admin-wrap">
-          <div class="admin-tabs">
-            <button class="stab active" onclick="adminTab('users',this)"><i class="fa fa-users"></i> Users</button>
-            <button class="stab" onclick="adminTab('roles',this)"><i class="fa fa-tag"></i> Roles</button>
-            <button class="stab" onclick="adminTab('bans',this)"><i class="fa fa-ban"></i> Bans</button>
-            <button class="stab" onclick="adminTab('posts',this)"><i class="fa fa-bullhorn"></i> Posts</button>
-            <button class="stab" onclick="adminTab('owner-msgs',this)"><i class="fa fa-inbox"></i> Contact Messages <span id="owner-msg-notif" class="notif-dot hidden"></span></button>
-            <button class="stab" id="admin-help-tab" onclick="adminTab('help',this)"><i class="fa fa-circle-question"></i> Help Center</button>
+          <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+            <button class="stab active" onclick="adminTab('users',this)" role="tab" aria-selected="true"><i class="fa fa-users"></i> Users</button>
+            <button class="stab" onclick="adminTab('roles',this)" role="tab" aria-selected="false"><i class="fa fa-tag"></i> Roles</button>
+            <button class="stab" onclick="adminTab('bans',this)" role="tab" aria-selected="false"><i class="fa fa-ban"></i> Bans</button>
+            <button class="stab" onclick="adminTab('posts',this)" role="tab" aria-selected="false"><i class="fa fa-bullhorn"></i> Posts</button>
+            <button class="stab" onclick="adminTab('owner-msgs',this)" role="tab" aria-selected="false"><i class="fa fa-inbox"></i> Contact Messages <span id="owner-msg-notif" class="notif-dot hidden"></span></button>
+            <button class="stab" id="admin-help-tab" onclick="adminTab('help',this)" role="tab" aria-selected="false"><i class="fa fa-circle-question"></i> Help Center</button>
           </div>
           <div id="at-users" class="admin-panel-section">
             <div class="admin-search"><input type="text" placeholder="Search users..." oninput="filterAdminUsers(this.value)" class="field-input"></div>
@@ -519,7 +574,7 @@
       </div>
 
       <!-- SAGE AI -->
-      <div id="v-sage" class="view hidden">
+      <div id="v-sage" class="view hidden" role="region" aria-label="Sage AI assistant">
         <div class="sage-layout">
           <!-- Side panel: chat history -->
           <div class="sage-side-panel" id="sage-side-panel">
@@ -564,12 +619,12 @@
               </div>
             </div>
             <div class="input-bar">
-              <button class="icon-btn" onclick="document.getElementById('sage-img-input').click()" title="Analyze Image"><i class="fa fa-image"></i></button>
-              <input type="file" id="sage-img-input" accept="image/*" onchange="handleSageImg(this)" hidden>
+              <button class="icon-btn" onclick="document.getElementById('sage-img-input').click()" title="Analyze Image" aria-label="Analyze image"><i class="fa fa-image"></i></button>
+              <input type="file" id="sage-img-input" accept="image/*" onchange="handleSageImg(this)" hidden aria-hidden="true">
               <div class="input-grow">
-                <textarea id="sage-input" placeholder="Ask Sage anything..." rows="1" onkeydown="sageKey(event)" oninput="autoResize(this)"></textarea>
+                <textarea id="sage-input" placeholder="Ask Sage anything..." rows="1" onkeydown="sageKey(event)" oninput="autoResize(this)" aria-label="Ask Sage anything"></textarea>
               </div>
-              <button class="send-btn" onclick="sendSage()"><i class="fa fa-paper-plane"></i></button>
+              <button class="send-btn" onclick="sendSage()" aria-label="Send to Sage"><i class="fa fa-paper-plane"></i></button>
             </div>
           </div>
         </div>
@@ -579,11 +634,11 @@
   </div>
 
   <!-- BOTTOM NAV -->
-  <nav class="bottom-nav" id="bottom-nav">
-    <button class="nav-btn active" data-nav="home" onclick="navTo('home')"><i class="fa fa-house"></i><span>Home</span></button>
-    <button class="nav-btn" data-nav="global" onclick="navTo('global')"><i class="fa fa-globe"></i><span>Global</span></button>
-    <button class="nav-btn" data-nav="announcements" onclick="navTo('announcements')"><i class="fa fa-bullhorn"></i><span>Posts</span></button>
-    <button class="nav-btn" data-nav="settings" onclick="navTo('settings')"><i class="fa fa-gear"></i><span>Settings</span></button>
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Main navigation">
+    <button class="nav-btn active" data-nav="home" onclick="navTo('home')" aria-label="Home"><i class="fa fa-house"></i><span>Home</span></button>
+    <button class="nav-btn" data-nav="global" onclick="navTo('global')" aria-label="Global Chat"><i class="fa fa-globe"></i><span>Global</span></button>
+    <button class="nav-btn" data-nav="announcements" onclick="navTo('announcements')" aria-label="Announcements"><i class="fa fa-bullhorn"></i><span>Posts</span></button>
+    <button class="nav-btn" data-nav="settings" onclick="navTo('settings')" aria-label="Settings"><i class="fa fa-gear"></i><span>Settings</span></button>
   </nav>
 </div>
 
@@ -593,9 +648,9 @@
   <!-- Friends -->
   <div id="m-friend" class="modal hidden">
     <div class="modal-head"><h2><i class="fa fa-user-plus"></i> Friends</h2><button class="modal-x" onclick="closeModal()"><i class="fa fa-xmark"></i></button></div>
-    <div class="friend-tabs">
-      <button class="ftab active" data-ftab="search" onclick="switchFriendTab('search',this)"><i class="fa fa-search"></i> Find People</button>
-      <button class="ftab" data-ftab="requests" onclick="switchFriendTab('requests',this)"><i class="fa fa-inbox"></i> Requests <span class="req-badge" id="req-tab-badge"></span></button>
+    <div class="friend-tabs" role="tablist" aria-label="Friend options">
+      <button class="ftab active" data-ftab="search" onclick="switchFriendTab('search',this)" role="tab" aria-selected="true"><i class="fa fa-search"></i> Find People</button>
+      <button class="ftab" data-ftab="requests" onclick="switchFriendTab('requests',this)" role="tab" aria-selected="false"><i class="fa fa-inbox"></i> Requests <span class="req-badge" id="req-tab-badge"></span></button>
     </div>
     <div class="modal-body" style="padding:0">
       <div id="ft-search" class="ft-content active">

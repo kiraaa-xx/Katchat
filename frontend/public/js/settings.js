@@ -67,6 +67,43 @@ function openSettings() {
   document.getElementById('sh-username').textContent = '@' + u.username;
   document.getElementById('sh-role-badge').innerHTML = getRoleBadge(u.role);
   document.getElementById('sh-pronouns').textContent = u.pronouns || '';
+  const joined = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '';
+  document.getElementById('sh-joined-date').innerHTML = joined ? '<i class="fa fa-calendar"></i> Joined ' + joined : '';
+  const bioEl = document.getElementById('sh-bio');
+  if (bioEl) {
+    bioEl.textContent = u.bio || '';
+    bioEl.style.display = u.bio ? '' : 'none';
+  }
+  const emailEl = document.getElementById('sh-email');
+  if (emailEl) {
+    emailEl.innerHTML = u.email ? '<i class="fa fa-envelope"></i> ' + esc(u.email) : '';
+    emailEl.style.display = u.email ? '' : 'none';
+  }
+  // Status indicator
+  const dot = document.getElementById('sh-status-dot');
+  const stxt = document.getElementById('sh-status-text');
+  if (dot && stxt) {
+    const isOnline = u.is_online;
+    dot.className = 'sh-status-dot ' + (isOnline ? 'online' : 'offline');
+    if (isOnline) { stxt.textContent = 'Online'; } else if (u.last_seen) {
+      const diff = Date.now() - new Date(u.last_seen).getTime();
+      const mins = Math.floor(diff / 60000);
+      stxt.textContent = 'Last seen ' + (mins < 60 ? mins + 'm ago' : mins < 1440 ? Math.floor(mins / 60) + 'h ago' : Math.floor(mins / 1440) + 'd ago');
+    } else { stxt.textContent = 'Offline'; }
+  }
+  // Stats
+  const friendsCount = (state.friends || []).length;
+  const annCount = state.announcements ? state.announcements.length : 0;
+  const ageEl = document.getElementById('sh-stat-friends');
+  if (ageEl) ageEl.textContent = friendsCount;
+  const annEl = document.getElementById('sh-stat-ann');
+  if (annEl) annEl.textContent = annCount;
+  const ageText = document.getElementById('sh-stat-age');
+  if (ageText && u.created_at) {
+    const ms = Date.now() - new Date(u.created_at).getTime();
+    const days = Math.floor(ms / 86400000);
+    ageText.textContent = days < 30 ? days + 'd' : days < 365 ? Math.floor(days / 30) + 'mo' : Math.floor(days / 365) + 'y';
+  }
   document.getElementById('set-name').value = u.display_name;
   document.getElementById('set-gender').value = u.gender || 'prefer-not-to-say';
   document.getElementById('set-bio').value = u.bio || '';
@@ -81,6 +118,22 @@ function openSettings() {
   const isAdmin = state.roles.find(r => r.name === u.role)?.permissions?.canAccessAdminPanel;
   document.getElementById('admin-card').classList.toggle('hidden', !isAdmin);
   renderAccentColors();
+}
+
+function toggleSettingsSection(btn) {
+  const body = btn.nextElementSibling;
+  if (!body || !body.classList.contains('settings-section-body')) return;
+  const isOpen = !body.classList.contains('hidden');
+  document.querySelectorAll('.settings-section').forEach(section => {
+    const otherBody = section.querySelector('.settings-section-body');
+    const otherBtn = section.querySelector('.settings-section-head');
+    if (otherBody && otherBody !== body && !otherBody.classList.contains('hidden')) {
+      otherBody.classList.add('hidden');
+      if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  body.classList.toggle('hidden');
+  btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
 }
 
 async function saveProfile() {
@@ -163,16 +216,11 @@ function fitAvatarCrop() {
   const natH = img.naturalHeight;
   const fitZoom = Math.min(vpSize / natW, vpSize / natH);
   _avCropZoom = fitZoom;
-  // Center the unscaled image in the viewport.
-  // translate(X,Y) moves the element, then scale(Z) scales from its center.
-  // The visible center after both transforms = (X + natW/2, Y + natH/2).
-  // Set this equal to viewport center: X = (vpSize - natW) / 2
   _avCropX = (vpSize - natW) / 2;
   _avCropY = (vpSize - natH) / 2;
   const slider = document.getElementById('av-crop-zoom');
   slider.value = fitZoom;
   applyAvCropTransform();
-  // Reset drag lock so init re-registers listeners (supports re-opening modal)
   vp._avDragInit = false;
   requestAnimationFrame(initAvCropDrag);
 }
@@ -240,14 +288,13 @@ function initAvCropDrag() {
       const newZoom = Math.max(0.1, Math.min(5, _avCropPinch.initialZoom * (dist / _avCropPinch.initialDist)));
       if (newZoom !== _avCropZoom) {
         const img = document.getElementById('av-crop-img');
-        const ox = img.naturalWidth / 2, oy = img.naturalHeight / 2;
+        const cx = img.naturalWidth / 2, cy = img.naturalHeight / 2;
         const rect = vp.getBoundingClientRect();
         const mx = (t1.clientX + t2.clientX) / 2 - rect.left;
         const my = (t1.clientY + t2.clientY) / 2 - rect.top;
-        const Z_old = _avCropZoom, Z_new = newZoom;
-        const inv = (Z_old - Z_new) / (Z_old * Z_new);
-        _avCropX += (mx - ox) * inv;
-        _avCropY += (my - oy) * inv;
+        const ratio = newZoom / _avCropZoom;
+        _avCropX = ratio * _avCropX + (1 - ratio) * (mx - cx);
+        _avCropY = ratio * _avCropY + (1 - ratio) * (my - cy);
         _avCropZoom = newZoom;
         document.getElementById('av-crop-zoom').value = newZoom;
         applyAvCropTransform();
@@ -268,26 +315,47 @@ function initAvCropDrag() {
     }
   }, { passive: true });
   vp.addEventListener('wheel', function (e) {
-    if (!e.ctrlKey) return;
     e.preventDefault();
     const delta = -e.deltaY;
-    const factor = delta > 0 ? 1.05 : 0.95;
+    const factor = delta > 0 ? 1.06 : 0.94;
     const newZoom = Math.max(0.1, Math.min(5, _avCropZoom * factor));
     if (newZoom !== _avCropZoom) {
       const img = document.getElementById('av-crop-img');
-      const ox = img.naturalWidth / 2, oy = img.naturalHeight / 2;
+      const cx = img.naturalWidth / 2, cy = img.naturalHeight / 2;
       const rect = vp.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const Z_old = _avCropZoom, Z_new = newZoom;
-      const inv = (Z_old - Z_new) / (Z_old * Z_new);
-      _avCropX += (mx - ox) * inv;
-      _avCropY += (my - oy) * inv;
+      const ratio = newZoom / _avCropZoom;
+      _avCropX = ratio * _avCropX + (1 - ratio) * (mx - cx);
+      _avCropY = ratio * _avCropY + (1 - ratio) * (my - cy);
       _avCropZoom = newZoom;
       document.getElementById('av-crop-zoom').value = newZoom;
       applyAvCropTransform();
     }
   }, { passive: false });
+
+  // Double-tap reset
+  let lastTapTime = 0;
+  vp.addEventListener('touchend', function (e) {
+    if (e.changedTouches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapTime < 300) {
+        // Double tap detected
+        const fitZoom = (function() {
+          const vps = vp.offsetWidth;
+          const imgEl = document.getElementById('av-crop-img');
+          const nw = imgEl.naturalWidth, nh = imgEl.naturalHeight;
+          return Math.min(vps / nw, vps / nh);
+        })();
+        _avCropZoom = fitZoom;
+        _avCropX = (vp.offsetWidth - document.getElementById('av-crop-img').naturalWidth) / 2;
+        _avCropY = (vp.offsetWidth - document.getElementById('av-crop-img').naturalHeight) / 2;
+        document.getElementById('av-crop-zoom').value = fitZoom;
+        applyAvCropTransform();
+      }
+      lastTapTime = now;
+    }
+  });
 }
 
 function applyAvCropTransform() {
@@ -321,16 +389,26 @@ async function applyAvatarCrop() {
   const sh = size / Z;
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
   closeModal();
-  try {
-    const blob = await new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.92); });
-    const fd = new FormData();
-    fd.append('avatar', blob, 'avatar.jpg');
-    const { profilePicture } = await api.uploadAvatar(fd);
-    state.user.profile_picture = profilePicture;
-    setAvEl(document.getElementById('settings-av'), state.user);
-    updateTopbarAv();
-    showToast('Avatar updated!', 'success');
-  } catch (err) { showToast(err.message, 'error'); }
+  const doUpload = async function() {
+    showUploadProgress(true);
+    setUploadProgress(0, 'Uploading avatar...');
+    try {
+      const blob = await new Promise(function (resolve) { canvas.toBlob(resolve, 'image/jpeg', 0.92); });
+      const fd = new FormData();
+      fd.append('avatar', blob, 'avatar.jpg');
+      const { profilePicture } = await uploadWithProgress('POST', '/users/avatar', fd, function(pct) {
+        setUploadProgress(pct, 'Uploading ' + Math.round(pct * 100) + '%');
+      });
+      showUploadProgress(false);
+      state.user.profile_picture = profilePicture;
+      setAvEl(document.getElementById('settings-av'), state.user);
+      updateTopbarAv();
+      showToast('Avatar updated!', 'success');
+    } catch (err) {
+      showUploadRetry(doUpload);
+    }
+  };
+  await doUpload();
 }
 
 window.openSettings = openSettings;
@@ -343,6 +421,7 @@ window.applyAvatarCrop = applyAvatarCrop;
 window.setAvCropZoom = setAvCropZoom;
 window.applyAccentColor = applyAccentColor;
 window.initAccentColor = initAccentColor;
+window.toggleSettingsSection = toggleSettingsSection;
 
 function updateBioCount() {
   const val = document.getElementById('set-bio')?.value || '';
@@ -369,25 +448,6 @@ window.toggleNotif = toggleNotif;
     document.documentElement.classList.add('fast-mode');
   }
 })();
-
-function toggleAbout(btn) {
-  const full = btn.nextElementSibling;
-  const icon = btn.querySelector('i');
-  const isOpen = full.classList.contains('visible');
-  if (isOpen) {
-    full.classList.remove('visible');
-    full.setAttribute('aria-hidden', 'true');
-    btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = '<i class="fa fa-chevron-down" aria-hidden="true"></i> Read more';
-  } else {
-    full.classList.add('visible');
-    full.setAttribute('aria-hidden', 'false');
-    btn.setAttribute('aria-expanded', 'true');
-    btn.innerHTML = '<i class="fa fa-chevron-up" aria-hidden="true"></i> Read less';
-  }
-}
-
-window.toggleAbout = toggleAbout;
 
 // ── Contact Owner ────────────────────────────────────────────
 window.messageOwner = function() { openOwnerContact(); };

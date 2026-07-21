@@ -18,6 +18,7 @@
     z-index: 50;
     transform: translateX(0);
     transition: transform .3s cubic-bezier(.4,0,.2,1);
+    will-change: transform;
   }
   .sidebar.hidden-mobile {
     transform: translateX(-100%);
@@ -152,19 +153,54 @@
     padding: 12px;
   }
   .settings-hero {
-    flex-direction: column;
-    text-align: center;
-    padding: 16px;
-    gap: 14px;
+    padding: 20px 16px;
   }
-  .settings-hero-info {
+  .settings-hero-inner {
+    flex-direction: column;
     align-items: center;
+  }
+  .sh-left, .sh-right {
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: none;
+  }
+  .sh-bio {
+    text-align: center;
+    max-width: 400px;
+  }
+  .sh-joined, .sh-email {
+    justify-content: center;
+  }
+  .sh-meta {
+    justify-content: center;
+  }
+  .sh-stats {
+    padding: 8px 10px;
+  }
+  .sh-stat-num {
+    font-size: 14px;
+  }
+  .sh-stat-label {
+    font-size: 9px;
   }
   .sh-name {
     font-size: 18px;
   }
   .settings-card {
     padding: 16px;
+  }
+  .settings-section-head {
+    padding: 13px 14px;
+    font-size: 14px;
+  }
+  .settings-section-body {
+    padding: 0 14px 14px;
+  }
+  .settings-section-body.hidden {
+    padding: 0 14px !important;
   }
 
   /* ── Modal ── */
@@ -397,7 +433,12 @@
   /* Settings */
   .settings-scroll { padding: 10px; }
   .settings-card { padding: 14px; }
-  .settings-hero { padding: 14px; gap: 10px; }
+  .settings-hero { padding: 16px 12px; }
+  .sh-name { font-size: 16px; }
+  .sh-left { min-width: 100px; }
+  .settings-section-head { padding: 11px 12px; font-size: 13px; }
+  .settings-section-body { padding: 0 12px 12px; }
+  .settings-section-body.hidden { padding: 0 12px !important; }
   /* Admin */
   .admin-panel-section { padding: 8px; }
   .admin-row { padding: 10px 12px; }
@@ -499,9 +540,16 @@
   .ann-card-body { padding: 10px; }
   .ann-card-title { font-size: 13px; }
   .settings-scroll { padding: 8px; }
-  .settings-hero { padding: 10px; gap: 8px; flex-direction: row; }
-  .settings-hero-info { align-items: flex-start; }
+  .settings-hero { padding: 12px 10px; }
+  .settings-hero-inner { flex-direction: row; align-items: flex-start; gap: 12px; }
+  .sh-left { align-items: center; min-width: 100px; flex: 0 0 auto; }
+  .sh-right { align-items: flex-start; text-align: left; min-width: 0; }
+  .sh-bio { text-align: left; }
+  .sh-joined, .sh-email { justify-content: flex-start; }
   .settings-card { padding: 12px; }
+  .settings-section-head { padding: 9px 10px; font-size: 12px; }
+  .settings-section-body { padding: 0 10px 10px; }
+  .settings-section-body.hidden { padding: 0 10px !important; }
   .admin-panel-section { padding: 6px; }
   .admin-row { padding: 8px 10px; }
   .sage-welcome { padding: 16px 12px; }
@@ -537,6 +585,18 @@
 #bottom-nav {
   display: flex;
   z-index: 100;
+}
+
+/* ===== MINIMUM TOUCH TARGETS (accessibility) ===== */
+@media (pointer: coarse) {
+  .nav-btn, .stab, .ftab, .chat-item, .friend-item, .quick-btn, .icon-btn, .send-btn { min-height: 44px; }
+  .back-btn, .mac-btn, .modal-x, .clear-search { min-height: 36px; }
+  .sage-chip { min-height: 40px; }
+}
+
+/* ===== LANDSCAPE SAFE AREA EXTRA ===== */
+@media (orientation: landscape) {
+  .overlay { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
 }
 
 /* ===== COMPREHENSIVE RESPONSIVE IMPROVEMENTS ===== */
@@ -586,13 +646,13 @@
 /* 5. Settings - consistent spacing */
 @media (min-width: 769px) and (max-width: 1024px) {
   .settings-scroll { padding: 14px; }
-  .settings-card { padding: 18px; }
 }
-@media (min-width: 1200px) {
-  .settings-sections { max-width: 640px; }
+@media (min-width: 1025px) {
+  .settings-sections { max-width: min(640px, 90vw); }
   .settings-scroll { display: flex; flex-direction: column; align-items: center; }
-  .settings-hero { width: 100%; max-width: 640px; box-sizing: border-box; }
-  .settings-card { width: 100%; max-width: 640px; box-sizing: border-box; }
+  .settings-hero { width: 100%; max-width: min(640px, 90vw); box-sizing: border-box; }
+  .settings-card { width: 100%; max-width: min(640px, 90vw); box-sizing: border-box; }
+  .settings-section { width: 100%; max-width: min(640px, 90vw); box-sizing: border-box; }
 }
 
 /* 6. Friends modal - responsive */
@@ -635,7 +695,7 @@
   .admin-panel-section { padding: 8px; }
 }
 @media (min-width: 1200px) {
-  .admin-panel-section { max-width: 900px; }
+  .admin-panel-section { max-width: 900px; width: 100%; align-self: center; }
 }
 
 /* 10. Input bar - never clip */

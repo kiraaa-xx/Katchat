@@ -49,14 +49,14 @@ async function openPrivateChat(friend) {
     renderPrivateMsgs(messages, container);
     scrollToBottom('priv-msgs');
   } catch (err) {
-    container.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${err.message}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${friendlyError(err) || 'Failed to load messages.'}</p></div>`;
   }
 }
 
 function renderPrivateMsgs(messages, container) {
   container.innerHTML = '';
   if (!messages.length) {
-    container.innerHTML = `<div class="empty-state"><i class="fa fa-comment-dots"></i><p>No messages yet. Say hello!</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa fa-comment-dots"></i><h4 class="es-title">No messages yet</h4><p>Start the conversation by saying hello!</p></div>`;
     return;
   }
   let lastDate = null;
@@ -154,20 +154,25 @@ async function sendPrivate() {
   if (!content && !selectedImages.length) return;
 
   if (selectedImages.length) {
-    try {
+    const doUpload = async function() {
       const fd = new FormData();
       if (content) fd.append('content', content);
       if (replyToMsg) fd.append('replyTo', replyToMsg.id);
       selectedImages.forEach(f => fd.append('images', f));
-      const res = await fetch(`/api/messages/private/${activeFriend.id}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${state.token}` },
-        body: fd
-      });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.error?.message || data.error || 'Upload failed', 'error'); return; }
-      if (data.message) appendPrivateMsg(data.message);
-    } catch (err) { showToast('Failed to send images', 'error'); return; }
+      showUploadProgress(true);
+      setUploadProgress(0, 'Uploading images...');
+      try {
+        const data = await uploadWithProgress('POST', `/messages/private/${activeFriend.id}`, fd, function(pct) {
+          setUploadProgress(pct, 'Uploading ' + Math.round(pct * 100) + '%');
+        });
+        showUploadProgress(false);
+        if (data.message) appendPrivateMsg(data.message);
+      } catch (err) {
+        showUploadRetry(doUpload);
+        return;
+      }
+    };
+    await doUpload();
   } else {
     const tempId = `temp_${Date.now()}`;
     if (socket) {
@@ -199,8 +204,16 @@ function privInput(el) {
 // Images
 function handleImgSelect(input) {
   const all = Array.from(input.files);
-  if (all.length > 5) { showToast('You can only upload up to 5 images at a time.', 'error'); input.value = ''; return; }
   if (!all.length) return;
+  if (all.length > 5) { showToast('You can only upload up to 5 images at a time.', 'error'); input.value = ''; return; }
+  const maxPerFile = 5 * 1024 * 1024;
+  const maxTotal = 10 * 1024 * 1024;
+  let totalSize = 0;
+  for (const f of all) {
+    if (f.size > maxPerFile) { showToast(`"${f.name}" is too large. Max 5MB per image.`, 'error'); input.value = ''; return; }
+    totalSize += f.size;
+  }
+  if (totalSize > maxTotal) { showToast('Total image size exceeds 10MB. Please choose smaller files.', 'error'); input.value = ''; return; }
   selectedImages = all;
   renderImgPreviews();
 }
@@ -272,3 +285,117 @@ function downloadAllImgs(urls) {
     setTimeout(() => { a.click(); a.remove(); }, i * 300);
   });
 }
+
+// ── Chat Search ──────────────────────────────────────────────
+let chatSearchMatches = [];
+let chatSearchCurrent = -1;
+let savedBubbles = new Map();
+
+function openChatSearch() {
+  const bar = document.getElementById('ch-search-bar');
+  if (!bar) return;
+  bar.classList.remove('hidden');
+  document.getElementById('ch-search-input').value = '';
+  document.getElementById('ch-search-input').focus();
+  document.getElementById('ch-search-meta').classList.add('hidden');
+  const searchBtn = document.querySelector('.chat-search-btn');
+  if (searchBtn) searchBtn.style.display = 'none';
+  savedBubbles.clear();
+  document.querySelectorAll('#priv-msgs .bubble:not(.deleted):not(.system)').forEach(b => {
+    savedBubbles.set(b, b.innerHTML);
+  });
+}
+
+function closeChatSearch() {
+  const bar = document.getElementById('ch-search-bar');
+  if (!bar) return;
+  bar.classList.add('hidden');
+  const searchBtn = document.querySelector('.chat-search-btn');
+  if (searchBtn) searchBtn.style.display = '';
+  chatSearchMatches = [];
+  chatSearchCurrent = -1;
+  savedBubbles.forEach((html, bubble) => { bubble.innerHTML = html; });
+  savedBubbles.clear();
+  document.querySelectorAll('.search-match-row').forEach(el => el.classList.remove('search-match-row'));
+  document.querySelectorAll('.search-highlight, .search-highlight-current').forEach(el => {
+    const txt = document.createTextNode(el.textContent);
+    el.parentNode.replaceChild(txt, el);
+  });
+}
+
+function searchPrivateChat(query) {
+  const meta = document.getElementById('ch-search-meta');
+  const count = document.getElementById('ch-search-count');
+  if (!meta || !count) return;
+  if (!query.trim()) {
+    meta.classList.add('hidden');
+    chatSearchMatches = [];
+    chatSearchCurrent = -1;
+    savedBubbles.forEach((html, bubble) => { bubble.innerHTML = html; });
+    document.querySelectorAll('.search-match-row').forEach(el => el.classList.remove('search-match-row'));
+    return;
+  }
+  const q = query.toLowerCase();
+  const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedQ})`, 'gi');
+  chatSearchMatches = [];
+  chatSearchCurrent = -1;
+  document.querySelectorAll('#priv-msgs .msg-row[data-id]').forEach(row => {
+    const bubble = row.querySelector('.bubble:not(.deleted):not(.system)');
+    if (!bubble) return;
+    const originalHtml = savedBubbles.get(bubble);
+    if (!originalHtml) return;
+    if (bubble.textContent.toLowerCase().includes(q)) {
+      chatSearchMatches.push(row);
+      row.classList.add('search-match-row');
+      bubble.innerHTML = originalHtml.replace(regex, '<span class="search-highlight">$1</span>');
+    } else {
+      row.classList.remove('search-match-row');
+      bubble.innerHTML = originalHtml;
+    }
+  });
+  if (chatSearchMatches.length) {
+    meta.classList.remove('hidden');
+    chatSearchCurrent = 0;
+    goToChatMatch(0);
+  } else {
+    meta.classList.remove('hidden');
+    count.textContent = '0/0';
+  }
+}
+
+function goToChatMatch(index) {
+  if (!chatSearchMatches.length) return;
+  const idx = (index + chatSearchMatches.length) % chatSearchMatches.length;
+  chatSearchCurrent = idx;
+  document.querySelectorAll('.search-highlight-current').forEach(el => {
+    el.classList.remove('search-highlight-current');
+    el.classList.add('search-highlight');
+  });
+  const row = chatSearchMatches[idx];
+  row.querySelectorAll('.search-highlight').forEach(el => {
+    el.classList.remove('search-highlight');
+    el.classList.add('search-highlight-current');
+  });
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('ch-search-count').textContent = `${idx + 1}/${chatSearchMatches.length}`;
+}
+
+function nextChatMatch() { goToChatMatch(chatSearchCurrent + 1); }
+function prevChatMatch() { goToChatMatch(chatSearchCurrent - 1); }
+
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    const vChat = document.getElementById('v-chat');
+    if (vChat && !vChat.classList.contains('hidden') && activeFriend) {
+      e.preventDefault();
+      openChatSearch();
+    }
+  }
+  if (e.key === 'Escape') {
+    const bar = document.getElementById('ch-search-bar');
+    if (bar && !bar.classList.contains('hidden')) {
+      closeChatSearch();
+    }
+  }
+});

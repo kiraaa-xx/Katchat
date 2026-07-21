@@ -6,7 +6,7 @@ const fs = require('fs');
 const supabase = require('../supabase');
 const { auth, adminOnly } = require('../middleware/auth');
 const { validateMaxLength } = require('../error-handler');
-const { imageFileFilter } = require('../utils');
+const { imageFileFilter, sanitizeText } = require('../utils');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -46,8 +46,11 @@ router.post('/', auth, adminOnly, upload.single('image'), async (req, res) => {
     if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
     const lenErr = validateMaxLength({ title, content }, { title: 200, content: 5000 });
     if (lenErr) return res.status(400).json({ error: lenErr });
+    const safeTitle = sanitizeText(title, 200);
+    const safeContent = sanitizeText(content, 5000);
+    if (!safeTitle || !safeContent) return res.status(400).json({ error: 'Title and content required' });
     const image = req.file ? `/uploads/announcements/${req.file.filename}` : null;
-    const { data } = await supabase.from('announcements').insert({ title, content, image, author_id: req.user.id, pinned: pinned === 'true' }).select().single();
+    const { data } = await supabase.from('announcements').insert({ title: safeTitle, content: safeContent, image, author_id: req.user.id, pinned: pinned === 'true' }).select().single();
     const enriched = await enrichAnnouncements([data]);
     res.json({ announcement: enriched[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -60,8 +63,8 @@ router.put('/:id', auth, adminOnly, upload.single('image'), async (req, res) => 
     const lenErr = validateMaxLength({ title, content }, { title: 200, content: 5000 });
     if (lenErr) return res.status(400).json({ error: lenErr });
     const updates = { updated_at: new Date().toISOString() };
-    if (title) updates.title = title;
-    if (content) updates.content = content;
+    if (title) updates.title = sanitizeText(title, 200);
+    if (content) updates.content = sanitizeText(content, 5000);
     if (pinned !== undefined) updates.pinned = pinned === 'true';
     if (req.file) updates.image = `/uploads/announcements/${req.file.filename}`;
     const { data } = await supabase.from('announcements').update(updates).eq('id', req.params.id).select().single();
@@ -99,10 +102,10 @@ router.post('/:id/comments', auth, async (req, res) => {
     // Check if banned
     const { data: user } = await supabase.from('users').select('is_banned_from_global').eq('id', req.user.id).single();
     if (user?.is_banned_from_global) return res.status(403).json({ error: 'Banned users cannot comment' });
-    const { content } = req.body;
-    if (!content?.trim()) return res.status(400).json({ error: 'Comment cannot be empty' });
+    const safeContent = sanitizeText(req.body.content, 1000);
+    if (!safeContent) return res.status(400).json({ error: 'Comment cannot be empty' });
     const { data: comment } = await supabase.from('announcement_comments')
-      .insert({ announcement_id: req.params.id, author_id: req.user.id, content: content.trim() }).select().single();
+      .insert({ announcement_id: req.params.id, author_id: req.user.id, content: safeContent }).select().single();
     const { data: author } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role').eq('id', req.user.id).single();
     res.json({ comment: { ...comment, author } });
   } catch (err) { res.status(500).json({ error: err.message }); }

@@ -36,8 +36,8 @@ if (window.__katchat_bindings_loaded__) {
     
     // Announcements
     'openAnnouncements', 'openAnnModal', 'submitAnnouncement', 'deleteAnn',
-    'toggleComments', 'loadComments', 'submitComment', 'deleteComment',
-    'previewAnnImg', 'commentKey', 'openAnnImageViewer',
+    'toggleComments', 'loadComments',
+    'previewAnnImg',
     
     // Sage
     'openSage', 'sendSage', 'sageKey', 'handleSageImg', 'clearSageImg',
@@ -46,7 +46,7 @@ if (window.__katchat_bindings_loaded__) {
     
     // Settings
     'openSettings', 'saveProfile', 'changePassword', 'toggleTheme',
-    'handleAvatarUpload', 'applyAvatarCrop', 'setAvCropZoom', 'toggleAbout', 'confirmLogout',
+    'handleAvatarUpload', 'applyAvatarCrop', 'setAvCropZoom', 'toggleSettingsSection', 'confirmLogout',
     
     // Admin
     'openAdmin', 'openBanDialog', 'changeUserRole', 'adminBan', 'adminUnban',

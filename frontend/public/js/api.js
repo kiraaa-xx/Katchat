@@ -15,6 +15,52 @@ async function req(method, path, body = null, isForm = false) {
   return data;
 }
 
+function uploadWithProgress(method, path, formData, onProgress) {
+  return new Promise(function(resolve, reject) {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, API + path);
+    const token = localStorage.getItem('kc_token');
+    if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.upload.onprogress = function(e) {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = function() {
+      const ct = xhr.getResponseHeader('content-type') || '';
+      if (!ct.includes('application/json')) { reject(new Error('Server error (' + xhr.status + ')')); return; }
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(data.error || 'Upload failed'));
+      } catch (e) { reject(new Error('Invalid server response')); }
+    };
+    xhr.onerror = function() { reject(new Error('Network error')); };
+    xhr.ontimeout = function() { reject(new Error('Upload timed out')); };
+    xhr.send(formData);
+  });
+}
+
+// ── Upload progress UI helpers ──
+let _uploadRetryFn = null;
+
+function showUploadProgress(show) {
+  const el = document.getElementById('upload-progress-container');
+  if (el) el.classList.toggle('hidden', !show);
+}
+
+function setUploadProgress(pct, text) {
+  const bar = document.getElementById('upload-progress-bar');
+  const txt = document.getElementById('upload-progress-text');
+  if (bar) bar.style.width = Math.round(pct * 100) + '%';
+  if (txt && text) txt.textContent = text;
+}
+
+function showUploadRetry(fn) {
+  _uploadRetryFn = fn;
+  const btn = document.getElementById('upload-retry-btn');
+  if (btn) { btn.classList.remove('hidden'); btn.onclick = function() { btn.classList.add('hidden'); if (_uploadRetryFn) _uploadRetryFn(); }; }
+  setUploadProgress(0, 'Upload failed');
+}
+
 const api = {
   login: (d) => req('POST', '/auth/login', d),
   register: (d) => req('POST', '/auth/register', d),

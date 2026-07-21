@@ -30,11 +30,15 @@
 .msg-appear{animation:msgAppear .28s cubic-bezier(.34,1.56,.64,1) forwards}
 @keyframes msgAppear{from{opacity:0;transform:translateY(10px) scale(.95)}to{opacity:1;transform:none}}
 
-/* ===== PAGE ENTER (smooth fade+slide) ===== */
+/* ===== PAGE ENTER/EXIT ===== */
 .page-enter{animation:pageEnter .35s cubic-bezier(.25,.46,.45,.94) forwards}
 @keyframes pageEnter{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 .view-enter{animation:viewEnter .3s cubic-bezier(.25,.46,.45,.94) forwards}
 @keyframes viewEnter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.view-exit{animation:viewExit .15s cubic-bezier(.5,0,.5,1) forwards}
+@keyframes viewExit{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-6px)}}
+.page-exit{animation:pageExit .2s cubic-bezier(.5,0,.5,1) forwards}
+@keyframes pageExit{from{opacity:1;transform:none}to{opacity:0;transform:translateX(-12px)}}
 
 /* ===== MAIN AREA TRANSITION ===== */
 .main-area-slide{animation:mainSlide .25s cubic-bezier(.25,.46,.45,.94) forwards}
@@ -78,8 +82,12 @@
 /* ===== MODAL ===== */
 .overlay{animation:overlayFade .2s ease}
 @keyframes overlayFade{from{opacity:0}to{opacity:1}}
+.overlay.closing{animation:overlayFadeOut .18s ease forwards}
+@keyframes overlayFadeOut{from{opacity:1}to{opacity:0}}
 .modal{animation:modalPop .25s cubic-bezier(.34,1.56,.64,1) forwards}
+.modal.closing{animation:modalOut .18s cubic-bezier(.5,0,.5,1) forwards}
 @keyframes modalPop{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
+@keyframes modalOut{from{opacity:1;transform:none}to{opacity:0;transform:scale(.97) translateY(6px)}}
 
 /* ===== TYPING ===== */
 .typing-bar{animation:slideUpFade .3s ease}
@@ -114,6 +122,23 @@
 
 /* ===== SAGE PANEL SLIDE ===== */
 @keyframes panelSlide{from{transform:translateX(-100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ===== PROFILE CARD ===== */
+.profile-card{animation:profileIn .35s cubic-bezier(.34,1.56,.64,1) forwards}
+.fast-mode .settings-hero-bg{animation:none}
+.fast-mode .settings-hero-bg::after{animation:none}
+.fast-mode .sh-status-dot.online{animation:none}
+@keyframes profileIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ===== MESSAGE SEND ===== */
+.msg-send{animation:msgSendOut .25s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes msgSendOut{from{opacity:0;transform:translateY(12px) scale(.94)}to{opacity:1;transform:none}}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce){
+  *,:before,:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .intro-ring,.intro-particle,.welcome-particle,.welcome-sparkle{display:none!important}
+}
 
 /* ===== WELCOME HERO ===== */
 @keyframes welcomeBreath{0%,100%{transform:translate(-50%,-60%) scale(1);opacity:.8}50%{transform:translate(-50%,-60%) scale(1.15);opacity:1}}

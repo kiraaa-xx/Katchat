@@ -6,7 +6,7 @@ const fs = require('fs');
 const supabase = require('../supabase');
 const { auth, adminOnly } = require('../middleware/auth');
 const { validateMaxLength } = require('../error-handler');
-const { imageFileFilter } = require('../utils');
+const { imageFileFilter, sanitizeText } = require('../utils');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -26,7 +26,7 @@ const enrichMessages = async (messages) => {
   if (!messages?.length) return [];
   const senderIds = [...new Set(messages.map(m => m.sender_id))];
   const { data: users } = await supabase.from('users')
-    .select('id,display_name,username,profile_picture,profile_color,role,bio').in('id', senderIds);
+    .select('id,display_name,username,profile_picture,profile_color,role,bio,created_at,pronouns,is_online,last_seen').in('id', senderIds);
   const userMap = {};
   (users || []).forEach(u => userMap[u.id] = u);
 
@@ -89,8 +89,9 @@ router.post('/private/:userId', auth, upload.array('images', 5), async (req, res
     const { content, replyTo } = req.body;
     const convId = [req.user.id, req.params.userId].sort().join('_');
     const images = req.files ? req.files.map(f => `/uploads/messages/${f.filename}`) : [];
-    if (!content && !images.length) return res.status(400).json({ error: 'Message cannot be empty' });
-    const lenErr = validateMaxLength({ content }, { content: 5000 });
+    const safeContent = sanitizeText(content, 5000);
+    if (!safeContent && !images.length) return res.status(400).json({ error: 'Message cannot be empty' });
+    const lenErr = validateMaxLength({ content: safeContent }, { content: 5000 });
     if (lenErr) return res.status(400).json({ error: lenErr });
     
     // Check image upload limit
@@ -111,7 +112,7 @@ router.post('/private/:userId', auth, upload.array('images', 5), async (req, res
     }
     
     const { data: message } = await supabase.from('messages').insert({
-      sender_id: req.user.id, content: content || '', images,
+      sender_id: req.user.id, content: safeContent, images,
       type: 'private', conversation_id: convId,
       reply_to: replyTo || null
     }).select().single();

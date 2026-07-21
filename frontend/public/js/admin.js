@@ -14,7 +14,7 @@ async function loadAdminUsers() {
     const { users } = await api.getAllUsers();
     list.innerHTML = '';
     if (!users || !users.length) {
-      list.innerHTML = `<div class="empty-state"><i class="fa fa-users"></i><p>No users found</p></div>`;
+      list.innerHTML = `<div class="empty-state"><i class="fa fa-users"></i><h4 class="es-title">No users found</h4><p>Try adjusting your search query to find users.</p></div>`;
       return;
     }
     users.forEach((u, i) => {
@@ -310,8 +310,9 @@ async function deleteRole(name) {
 }
 
 function adminTab(tab, btn) {
-  document.querySelectorAll('.admin-tabs .stab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.admin-tabs .stab').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
   btn.classList.add('active');
+  btn.setAttribute('aria-selected', 'true');
   ['users','roles','bans','posts','owner-msgs','help'].forEach(function(t) { var el = document.getElementById('at-' + t); if (el) el.classList.toggle('hidden', t !== tab); });
   if (tab === 'users') loadAdminUsers();
   else if (tab === 'roles') loadAdminRoles();
@@ -386,7 +387,7 @@ async function loadAdminPosts() {
     const { announcements } = await api.getAnnouncements();
     list.innerHTML = '';
     if (!announcements || !announcements.length) {
-      list.innerHTML = `<div class="empty-state"><i class="fa fa-bullhorn"></i><p>No posts yet</p></div>`;
+      list.innerHTML = `<div class="empty-state"><i class="fa fa-bullhorn"></i><h4 class="es-title">No posts yet</h4><p>Create your first announcement to reach all users.</p></div>`;
       return;
     }
     announcements.forEach(ann => {

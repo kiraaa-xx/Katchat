@@ -154,7 +154,7 @@ async function loadAdminOwnerMessages() {
     if (unreadLabel) unreadLabel.textContent = unreadCount > 0 ? unreadCount + ' unread' : '';
     list.innerHTML = '';
     if (!messages.length) {
-      list.innerHTML = '<div class="empty-state"><i class="fa fa-inbox"></i><p>No contact messages yet</p></div>';
+      list.innerHTML = '<div class="empty-state"><i class="fa fa-inbox"></i><h4 class="es-title">No contact messages yet</h4><p>When users contact the owner their messages will appear here.</p></div>';
       return;
     }
     messages.forEach(function(m, i) {

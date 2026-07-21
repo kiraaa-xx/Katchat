@@ -4,7 +4,7 @@ async function openAnnouncements() {
   document.getElementById('new-ann-btn').classList.toggle('hidden', !rolePerms.canCreateAnnouncements);
 
   const container = document.getElementById('ann-container');
-  container.innerHTML = `<div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>Loading announcements...</p></div>`;
+  container.innerHTML = skeletonAnnouncements(3);
 
   try {
     const { announcements } = await api.getAnnouncements();
@@ -14,14 +14,14 @@ async function openAnnouncements() {
     }
     renderAnnouncements(announcements, container);
   } catch (err) {
-    container.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${esc(err.message)}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${esc(friendlyError(err) || 'Announcements failed to load. Please try again.')}</p></div>`;
   }
 }
 
 function renderAnnouncements(announcements, container) {
   container.innerHTML = '';
   if (!announcements.length) {
-    container.innerHTML = `<div class="empty-state"><i class="fa fa-bullhorn"></i><p>No announcements yet</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa fa-bullhorn"></i><h4 class="es-title">No announcements yet</h4><p>Check back later for updates and news from the team.</p></div>`;
     return;
   }
   announcements.forEach(ann => container.appendChild(makeAnnCard(ann)));
@@ -207,7 +207,7 @@ async function loadDetailComments(annId) {
 function renderComments(comments, list, annId, prefix) {
   list.innerHTML = '';
   if (!comments.length) {
-    list.innerHTML = `<p class="no-comments">No comments yet. Be the first!</p>`;
+    list.innerHTML = `<p class="no-comments"><i class="fa fa-comment" style="display:block;margin:0 auto 6px;font-size:18px;opacity:.5"></i>No comments yet. Be the first!</p>`;
     return;
   }
   comments.forEach(c => list.appendChild(makeCommentEl(c, annId, prefix)));
@@ -285,7 +285,7 @@ function openAnnImageViewer(src) {
   overlay.innerHTML = `
     <div class="ann-img-viewer-inner">
       <button class="ann-img-viewer-close" title="Close"><i class="fa fa-times"></i></button>
-      <img src="${src}" class="ann-img-viewer-img" alt="Announcement image" onclick="event.stopPropagation()">
+      <img src="${src}" class="ann-img-viewer-img" alt="Announcement image" draggable="false" onclick="event.stopPropagation()">
       <div class="ann-img-viewer-actions">
         <a href="${src}" target="_blank" class="ann-img-viewer-link" onclick="event.stopPropagation()">
           <i class="fa fa-external-link-alt"></i> Open full size
@@ -295,8 +295,67 @@ function openAnnImageViewer(src) {
 
   document.body.appendChild(overlay);
 
-  const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); } };
+  const imgEl = overlay.querySelector('.ann-img-viewer-img');
+  let imgScale = 1, imgPanX = 0, imgPanY = 0;
+  let isPanning = false, panStartX = 0, panStartY = 0, panOrigX = 0, panOrigY = 0;
+
+  function resetTransform() { imgScale = 1; imgPanX = 0; imgPanY = 0; applyTransform(); imgEl.classList.remove('iv-zoomed'); }
+  function applyTransform() {
+    imgEl.style.transform = imgScale !== 1 ? `translate(${imgPanX}px,${imgPanY}px) scale(${imgScale})` : 'none';
+    imgEl.classList.toggle('iv-zoomed', imgScale > 1);
+  }
+
+  imgEl.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const rect = imgEl.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const delta = -e.deltaY * 0.001;
+    const newScale = Math.max(0.5, Math.min(5, imgScale * (1 + delta)));
+    if (newScale !== imgScale) {
+      const ratio = newScale / imgScale;
+      imgPanX = mx - (mx - imgPanX) * ratio;
+      imgPanY = my - (my - imgPanY) * ratio;
+      imgScale = newScale;
+      applyTransform();
+    }
+  }, { passive: false });
+
+  imgEl.addEventListener('mousedown', function(e) {
+    if (imgScale <= 1) return;
+    e.preventDefault(); isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panOrigX = imgPanX; panOrigY = imgPanY;
+    imgEl.classList.add('iv-dragging');
+  });
+  window.addEventListener('mousemove', function(e) {
+    if (!isPanning) return;
+    imgPanX = panOrigX + (e.clientX - panStartX);
+    imgPanY = panOrigY + (e.clientY - panStartY);
+    applyTransform();
+  });
+  window.addEventListener('mouseup', function() { if (isPanning) { isPanning = false; imgEl.classList.remove('iv-dragging'); } });
+
+  imgEl.addEventListener('dblclick', function(e) {
+    e.preventDefault();
+    if (imgScale > 1) { resetTransform(); return; }
+    const rect = imgEl.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const newScale = 2.5;
+    const ratio = newScale / imgScale;
+    imgPanX = mx - (mx - imgPanX) * ratio;
+    imgPanY = my - (my - imgPanY) * ratio;
+    imgScale = newScale;
+    applyTransform();
+  });
+
+  function removeAnnImgViewer() {
+    isPanning = false;
+    overlay.remove();
+  }
+
+  const escHandler = (e) => { if (e.key === 'Escape') { removeAnnImgViewer(); document.removeEventListener('keydown', escHandler); } };
   document.addEventListener('keydown', escHandler);
+  overlay.onclick = (e) => { if (e.target === overlay || e.target.classList.contains('ann-img-viewer-close')) removeAnnImgViewer(); };
 }
 
 async function toggleComments(annId, btn) {
@@ -337,42 +396,6 @@ async function loadComments(annId) {
   } catch (err) {
     if (list) list.innerHTML = `<p style="color:var(--danger);font-size:12px;padding:8px">${esc(err.message)}</p>`;
   }
-}
-
-function commentKey(e, annId) {
-  if (e.key === 'Enter') { e.preventDefault(); submitComment(annId); }
-}
-
-async function submitComment(annId) {
-  const input = document.getElementById(`ci-${annId}`);
-  const content = input?.value.trim();
-  if (!content) return;
-  input.value = '';
-  try {
-    const { comment } = await api.postComment(annId, content);
-    const list = document.getElementById(`comments-list-${annId}`);
-    const noComments = list.querySelector('.no-comments');
-    if (noComments) noComments.remove();
-    list.appendChild(makeCommentEl(comment, annId, ''));
-    const badge = document.getElementById(`cc-${annId}`);
-    if (badge) {
-      const current = parseInt(badge.textContent) || 0;
-      badge.textContent = current + 1;
-    }
-    list.scrollTop = list.scrollHeight;
-  } catch (err) { showToast(err.message, 'error'); }
-}
-
-async function deleteComment(annId, commentId) {
-  showConfirm('Delete Comment', 'Remove this comment?', async () => {
-    try {
-      await api.deleteComment(annId, commentId);
-      document.querySelectorAll(`[data-comment-id="${commentId}"]`).forEach(el => el.remove());
-      const badge = document.getElementById(`cc-${annId}`) || document.getElementById(`cc-det-${annId}`);
-      if (badge) { const c = parseInt(badge.textContent) || 1; badge.textContent = c > 1 ? c - 1 : ''; }
-      showToast('Comment deleted', 'info');
-    } catch (err) { showToast(err.message, 'error'); }
-  });
 }
 
 async function openAnnModal(annId) {
@@ -418,12 +441,24 @@ async function submitAnnouncement() {
   const fd = new FormData();
   fd.append('title', title); fd.append('content', content); fd.append('pinned', pinned);
   if (imgFile) fd.append('image', imgFile);
-  try {
-    if (editingAnnId) { await api.updateAnnouncement(editingAnnId, fd); showToast('Announcement updated!', 'success'); }
-    else { await api.createAnnouncement(fd); showToast('Announcement posted!', 'success'); }
-    closeModal();
-    await openAnnouncements();
-  } catch (err) { showToast(err.message, 'error'); }
+  const method = editingAnnId ? 'PUT' : 'POST';
+  const path = editingAnnId ? '/announcements/' + editingAnnId : '/announcements';
+  const doPost = async function() {
+    showUploadProgress(true);
+    setUploadProgress(0, editingAnnId ? 'Updating...' : 'Posting...');
+    try {
+      await uploadWithProgress(method, path, fd, function(pct) {
+        setUploadProgress(pct, Math.round(pct * 100) + '%');
+      });
+      showUploadProgress(false);
+      showToast(editingAnnId ? 'Announcement updated!' : 'Announcement posted!', 'success');
+      closeModal();
+      await openAnnouncements();
+    } catch (err) {
+      showUploadRetry(doPost);
+    }
+  };
+  await doPost();
 }
 
 async function deleteAnn(annId) {
@@ -438,9 +473,6 @@ window.openAnnModal = openAnnModal;
 window.submitAnnouncement = submitAnnouncement;
 window.deleteAnn = deleteAnn;
 window.toggleComments = toggleComments;
-window.submitComment = submitComment;
-window.deleteComment = deleteComment;
-window.commentKey = commentKey;
 window.previewAnnImg = previewAnnImg;
 window.openAnnDetail = openAnnDetail;
 window.closeAnnDetail = closeAnnDetail;

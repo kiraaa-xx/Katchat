@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
 const { auth, adminOnly } = require('../middleware/auth');
+const { sanitizeText } = require('../utils');
 
 router.get('/status', auth, async (req, res) => {
   try {
@@ -32,11 +33,9 @@ router.get('/status', auth, async (req, res) => {
 
 router.post('/', auth, async (req, res) => {
   try {
-    const { content } = req.body;
-    if (!content || !content.trim())
+    const content = sanitizeText(req.body.content, 2000);
+    if (!content)
       return res.status(400).json({ error: 'Message content is required' });
-    if (content.length > 2000)
-      return res.status(400).json({ error: 'Message too long (max 2000 chars)' });
 
     const today = new Date().toISOString().split('T')[0];
     const { count, error: countErr } = await supabase
@@ -129,11 +128,9 @@ router.put('/read-replies', auth, async (req, res) => {
 
 router.put('/:id/reply', auth, adminOnly, async (req, res) => {
   try {
-    const { reply } = req.body;
-    if (!reply || !reply.trim())
+    const reply = sanitizeText(req.body.reply, 2000);
+    if (!reply)
       return res.status(400).json({ error: 'Reply content is required' });
-    if (reply.length > 2000)
-      return res.status(400).json({ error: 'Reply too long (max 2000 chars)' });
 
     const { data: msg, error: fetchErr } = await supabase
       .from('owner_messages')

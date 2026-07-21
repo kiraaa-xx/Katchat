@@ -30,10 +30,10 @@ const safe = (u) => { if (!u) return null; const { email, password, banned_by, b
 
 router.get('/search', auth, async (req, res) => {
   try {
-    const { q } = req.query;
+    const q = String(req.query.q || '').replace(/[%_,()]/g, '').trim();
     if (!q || q.length < 1) return res.json({ users: [] });
-    const { data } = await supabase.from('users')
-      .select('id,display_name,username,profile_picture,profile_color,role,is_online,pronouns,last_seen,bio')
+      const { data } = await supabase.from('users')
+      .select('id,display_name,username,profile_picture,profile_color,role,is_online,pronouns,last_seen,bio,created_at')
       .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
       .neq('id', req.user.id).limit(20);
     res.json({ users: data || [] });
@@ -50,7 +50,7 @@ router.get('/friends', auth, async (req, res) => {
     const receivedRows = (friendRows || []).filter(r => r.status === 'pending' && r.friend_id === uid);
     const fetchUsers = async (ids) => {
       if (!ids.length) return [];
-      const { data } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,is_online,last_seen,pronouns,bio').in('id', ids);
+      const { data } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,is_online,last_seen,pronouns,bio,created_at').in('id', ids);
       return data || [];
     };
     const [friends, sent, received] = await Promise.all([fetchUsers(friendIds), fetchUsers(sentRows.map(r => r.friend_id)), fetchUsers(receivedRows.map(r => r.user_id))]);
@@ -101,6 +101,11 @@ router.put('/profile', auth, async (req, res) => {
       if (words.length > 20) return res.status(400).json({ error: 'Bio must be 20 words or fewer' });
       if (/[<>&"']/.test(bio)) return res.status(400).json({ error: 'Bio contains invalid characters' });
     }
+    const validGenders = ['male', 'female', 'non-binary', 'prefer-not-to-say'];
+    if (gender && !validGenders.includes(gender)) return res.status(400).json({ error: 'Invalid gender value' });
+    const validThemes = ['dark', 'light'];
+    if (theme && !validThemes.includes(theme)) return res.status(400).json({ error: 'Invalid theme value' });
+    if (accentColor && !/^#[0-9a-fA-F]{6}$/.test(accentColor)) return res.status(400).json({ error: 'Invalid accent color format' });
     const lenErr = validateMaxLength({ displayName, gender, theme, bio, accentColor }, { displayName: 50, gender: 20, theme: 20, bio: 200, accentColor: 20 });
     if (lenErr) return res.status(400).json({ error: lenErr });
     const updates = { updated_at: new Date().toISOString() };
@@ -169,7 +174,7 @@ router.get('/suggestions', auth, async (req, res) => {
     // 3. Get candidate users not in exclude list
     const { data: candidates } = await supabase
       .from('users')
-      .select('id,display_name,username,profile_picture,profile_color,role,is_online,pronouns')
+      .select('id,display_name,username,profile_picture,profile_color,role,is_online,pronouns,bio,last_seen,created_at')
       .not('id', 'in', `(${excludeIds.join(',')})`)
       .limit(30);
 

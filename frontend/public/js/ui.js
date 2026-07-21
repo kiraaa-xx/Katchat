@@ -84,7 +84,8 @@ function fmtLastSeen(d) {
 // ── Modal ─────────────────────────────────────────────────────
 function openModal(id) {
   document.getElementById('overlay').classList.remove('hidden');
-  document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+  document.getElementById('overlay').classList.remove('closing');
+  document.querySelectorAll('.modal').forEach(m => { m.classList.add('hidden'); m.classList.remove('closing'); });
   const modal = document.getElementById(id);
   modal.classList.remove('hidden');
   modal.setAttribute('role', 'dialog');
@@ -93,8 +94,15 @@ function openModal(id) {
   if (firstFocusable) setTimeout(() => firstFocusable.focus(), 100);
 }
 function closeModal() {
-  document.getElementById('overlay').classList.add('hidden');
-  document.querySelectorAll('.modal').forEach(m => { m.classList.add('hidden'); m.removeAttribute('role'); m.removeAttribute('aria-modal'); });
+  const overlay = document.getElementById('overlay');
+  const modals = document.querySelectorAll('.modal:not(.hidden)');
+  modals.forEach(m => m.classList.add('closing'));
+  overlay.classList.add('closing');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('closing');
+    modals.forEach(m => { m.classList.add('hidden'); m.classList.remove('closing'); m.removeAttribute('role'); m.removeAttribute('aria-modal'); });
+  }, 180);
 }
 function overlayClick(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
 
@@ -147,9 +155,15 @@ function autoResize(el) {
 }
 
 // ── Scroll to bottom ──────────────────────────────────────────
-function scrollToBottom(id) {
+function scrollToBottom(id, smooth = true) {
   const el = document.getElementById(id);
-  if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  if (el) requestAnimationFrame(() => {
+    if (smooth && 'scrollBehavior' in document.documentElement.style) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
+  });
 }
 
 // ── Toggle password eye ───────────────────────────────────────
@@ -174,7 +188,7 @@ function openImgViewer(images, index) {
     <div class="img-viewer-nav">
       <button class="iv-nav-btn iv-prev" title="Previous (←)"><i class="fa fa-chevron-left"></i></button>
       <div class="iv-main">
-        <img src="${esc(urls[idx])}" alt="Image" class="iv-img">
+        <img src="${esc(urls[idx])}" alt="Image" class="iv-img" draggable="false">
         <button class="iv-dl-btn" title="Download"><i class="fa fa-download"></i></button>
       </div>
       <button class="iv-nav-btn iv-next" title="Next (→)"><i class="fa fa-chevron-right"></i></button>
@@ -188,10 +202,45 @@ function openImgViewer(images, index) {
   const nextBtn = overlay.querySelector('.iv-next');
   const counterEl = overlay.querySelector('.iv-cur');
   const dlBtn = overlay.querySelector('.iv-dl-btn');
+  const ivMain = overlay.querySelector('.iv-main');
+
+  // Zoom / pan state
+  let imgScale = 1;
+  let imgPanX = 0;
+  let imgPanY = 0;
+  let isPanning = false;
+  let panStartX = 0;
+  let panStartY = 0;
+  let panOrigX = 0;
+  let panOrigY = 0;
+  let lastTouchDist = 0;
+  let lastTouchCenter = null;
+
+  function resetTransform() {
+    imgScale = 1;
+    imgPanX = 0;
+    imgPanY = 0;
+    applyTransform();
+    imgEl.classList.remove('iv-zoomed');
+  }
+
+  function applyTransform() {
+    const t = imgScale !== 1
+      ? `translate(${imgPanX}px, ${imgPanY}px) scale(${imgScale})`
+      : 'none';
+    imgEl.style.transform = t;
+    if (imgScale > 1) {
+      imgEl.classList.add('iv-zoomed');
+    } else {
+      imgEl.classList.remove('iv-zoomed');
+    }
+  }
 
   function showImage(i) {
     const newIdx = (i + total) % total;
+    resetTransform();
     imgEl.style.opacity = '0';
+    imgEl.classList.remove('iv-dragging');
     setTimeout(function() {
       imgEl.src = esc(urls[newIdx]);
       imgEl.style.opacity = '1';
@@ -216,13 +265,19 @@ function openImgViewer(images, index) {
     a.remove();
   });
 
+  function removeViewer() {
+    isPanning = false;
+    zoomTouchStart = null;
+    overlay.remove();
+  }
+
   overlay.addEventListener('click', function(e) {
-    if (e.target === overlay || e.target.closest('.img-viewer-close')) overlay.remove();
+    if (e.target === overlay || e.target.closest('.img-viewer-close')) removeViewer();
   });
 
   // Keyboard nav
   const keyHandler = function(e) {
-    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', keyHandler); }
+    if (e.key === 'Escape') { removeViewer(); document.removeEventListener('keydown', keyHandler); }
     if (total > 1) {
       if (e.key === 'ArrowLeft') { e.preventDefault(); currentIdx = showImage(currentIdx - 1); }
       if (e.key === 'ArrowRight') { e.preventDefault(); currentIdx = showImage(currentIdx + 1); }
@@ -230,15 +285,163 @@ function openImgViewer(images, index) {
   };
   document.addEventListener('keydown', keyHandler);
 
-  // Touch swipe for mobile
-  let touchStartX = 0;
-  overlay.addEventListener('touchstart', function(e) { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-  overlay.addEventListener('touchend', function(e) {
-    const delta = e.changedTouches[0].screenX - touchStartX;
-    if (Math.abs(delta) > 50 && total > 1) {
-      if (delta < 0) currentIdx = showImage(currentIdx + 1);
-      else currentIdx = showImage(currentIdx - 1);
+  // ── Zoom via scroll wheel ──
+  imgEl.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const rect = imgEl.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const delta = -e.deltaY * 0.001;
+    const newScale = Math.max(0.5, Math.min(5, imgScale * (1 + delta)));
+    if (newScale !== imgScale) {
+      const ratio = newScale / imgScale;
+      imgPanX = mx - (mx - imgPanX) * ratio;
+      imgPanY = my - (my - imgPanY) * ratio;
+      imgScale = newScale;
+      applyTransform();
     }
+  }, { passive: false });
+
+  // ── Drag to pan (mouse) ──
+  imgEl.addEventListener('mousedown', function(e) {
+    if (imgScale <= 1) return;
+    e.preventDefault();
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panOrigX = imgPanX;
+    panOrigY = imgPanY;
+    imgEl.classList.add('iv-dragging');
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (!isPanning) return;
+    imgPanX = panOrigX + (e.clientX - panStartX);
+    imgPanY = panOrigY + (e.clientY - panStartY);
+    applyTransform();
+  });
+
+  window.addEventListener('mouseup', function() {
+    if (isPanning) {
+      isPanning = false;
+      imgEl.classList.remove('iv-dragging');
+    }
+  });
+
+  // ── Double-click to reset zoom ──
+  imgEl.addEventListener('dblclick', function(e) {
+    e.preventDefault();
+    if (imgScale > 1) {
+      resetTransform();
+    } else {
+      // Zoom to cursor
+      const rect = imgEl.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const newScale = 2.5;
+      const ratio = newScale / imgScale;
+      imgPanX = mx - (mx - imgPanX) * ratio;
+      imgPanY = my - (my - imgPanY) * ratio;
+      imgScale = newScale;
+      applyTransform();
+    }
+  });
+
+  // ── Touch: pan (when zoomed) / swipe (when fit) / pinch zoom ──
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchTime = 0;
+  let isSwiping = false;
+  let zoomTouchStart = null;
+
+  overlay.addEventListener('touchstart', function(e) {
+    const touches = e.touches;
+    if (touches.length === 1) {
+      touchStartX = touches[0].screenX;
+      touchStartY = touches[0].screenY;
+      touchTime = Date.now();
+      if (imgScale > 1) {
+        isPanning = true;
+        panStartX = touches[0].clientX;
+        panStartY = touches[0].clientY;
+        panOrigX = imgPanX;
+        panOrigY = imgPanY;
+        isSwiping = false;
+      } else {
+        isSwiping = true;
+        isPanning = false;
+      }
+      zoomTouchStart = null;
+    } else if (touches.length === 2) {
+      isSwiping = false;
+      isPanning = false;
+      const t1 = touches[0], t2 = touches[1];
+      lastTouchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      lastTouchCenter = {
+        x: (t1.clientX + t2.clientX) / 2,
+        y: (t1.clientY + t2.clientY) / 2
+      };
+      zoomTouchStart = { dist: lastTouchDist, scale: imgScale, cx: lastTouchCenter.x, cy: lastTouchCenter.y };
+    }
+  }, { passive: true });
+
+  overlay.addEventListener('touchmove', function(e) {
+    const touches = e.touches;
+    if (touches.length === 2 && zoomTouchStart) {
+      e.preventDefault();
+      const t1 = touches[0], t2 = touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const cx = (t1.clientX + t2.clientX) / 2;
+      const cy = (t1.clientY + t2.clientY) / 2;
+      const newScale = Math.max(0.5, Math.min(5, zoomTouchStart.scale * (dist / zoomTouchStart.dist)));
+      const rect = imgEl.getBoundingClientRect();
+      const mx = cx - rect.left;
+      const my = cy - rect.top;
+      const ratio = newScale / imgScale;
+      imgPanX = mx - (mx - imgPanX) * ratio;
+      imgPanY = my - (my - imgPanY) * ratio;
+      imgScale = newScale;
+      applyTransform();
+    } else if (touches.length === 1) {
+      if (isPanning) {
+        const t = touches[0];
+        imgPanX = panOrigX + (t.clientX - panStartX);
+        imgPanY = panOrigY + (t.clientY - panStartY);
+        applyTransform();
+      }
+    }
+  }, { passive: false });
+
+  overlay.addEventListener('touchend', function(e) {
+    if (e.changedTouches.length === 1) {
+      const t = e.changedTouches[0];
+      if (isSwiping && imgScale <= 1) {
+        const delta = t.screenX - touchStartX;
+        const deltaY = Math.abs(t.screenY - touchStartY);
+        if (Math.abs(delta) > 50 && deltaY < 80 && total > 1) {
+          if (delta < 0) currentIdx = showImage(currentIdx + 1);
+          else currentIdx = showImage(currentIdx - 1);
+        }
+      }
+      // Double-tap detection
+      if (imgScale <= 1 && Math.abs(t.screenX - touchStartX) < 30 && Math.abs(t.screenY - touchStartY) < 30 && Date.now() - touchTime < 250) {
+        // Zoom in on double tap
+        const rect = imgEl.getBoundingClientRect();
+        const mx = t.clientX - rect.left;
+        const my = t.clientY - rect.top;
+        const newScale = 2.5;
+        const ratio = newScale / imgScale;
+        imgPanX = mx - (mx - imgPanX) * ratio;
+        imgPanY = my - (my - imgPanY) * ratio;
+        imgScale = newScale;
+        applyTransform();
+      } else if (imgScale > 1 && Math.abs(t.screenX - touchStartX) < 30 && Math.abs(t.screenY - touchStartY) < 30 && Date.now() - touchTime < 250) {
+        resetTransform();
+      }
+      isPanning = false;
+      isSwiping = false;
+    }
+    zoomTouchStart = null;
   }, { passive: true });
 
   // Fade-in the image
@@ -248,14 +451,27 @@ function openImgViewer(images, index) {
 
 // ── View management ───────────────────────────────────────────
 function showView(id) {
-  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+  const oldView = document.querySelector('.view:not(.hidden)');
   const el = document.getElementById(`v-${id}`);
   if (el) {
-    el.classList.remove('hidden');
-    el.classList.remove('view-enter', 'page-enter');
-    void el.offsetWidth; // force reflow
-    el.classList.add('view-enter');
-    setTimeout(() => el.classList.remove('view-enter'), 400);
+    if (oldView && oldView !== el) {
+      oldView.classList.add('view-exit');
+      setTimeout(() => {
+        oldView.classList.add('hidden');
+        oldView.classList.remove('view-exit');
+        el.classList.remove('hidden');
+        el.classList.remove('view-enter', 'page-enter');
+        void el.offsetWidth;
+        el.classList.add('view-enter');
+        setTimeout(() => el.classList.remove('view-enter'), 400);
+      }, 150);
+    } else {
+      el.classList.remove('hidden');
+      el.classList.remove('view-enter', 'page-enter');
+      void el.offsetWidth;
+      el.classList.add('view-enter');
+      setTimeout(() => el.classList.remove('view-enter'), 400);
+    }
   }
 
   const sidebar = document.getElementById('sidebar');
@@ -287,8 +503,9 @@ function goBack() {
 
 // ── Sidebar tab ───────────────────────────────────────────────
 function switchTab(tab, btn) {
-  document.querySelectorAll('.sidebar-tabs .stab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sidebar-tabs .stab').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
   btn.classList.add('active');
+  btn.setAttribute('aria-selected', 'true');
   document.getElementById('tab-chats').classList.toggle('hidden', tab !== 'chats');
   document.getElementById('tab-friends').classList.toggle('hidden', tab !== 'friends');
 }
@@ -305,11 +522,52 @@ function skeletonRows(n = 5) {
     </div>`).join('');
 }
 
+function skeletonChatItems(n = 5) {
+  return Array(n).fill(0).map(() => `
+    <div class="skel-row">
+      <div class="skel skel-av"></div>
+      <div class="skel-lines" style="max-width:${160 + Math.random() * 80}px">
+        <div class="skel skel-line" style="width:${50 + Math.random() * 30}%"></div>
+        <div class="skel skel-line" style="width:${30 + Math.random() * 20}%"></div>
+      </div>
+    </div>`).join('');
+}
+
+function skeletonAnnouncements(n = 3) {
+  return Array(n).fill(0).map(() => `
+    <div class="ann-card" style="padding:0">
+      <div class="ann-card-body">
+        <div class="skel skel-line" style="width:60px;height:18px;border-radius:20px;margin-bottom:8px"></div>
+        <div class="skel skel-line" style="width:70%;height:20px;margin-bottom:10px"></div>
+        <div class="skel skel-line" style="width:100%;height:12px;margin-bottom:6px"></div>
+        <div class="skel skel-line" style="width:85%;height:12px;margin-bottom:6px"></div>
+        <div class="skel skel-line" style="width:40%;height:12px;margin-bottom:14px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="skel" style="width:28px;height:28px;border-radius:50%"></div>
+          <div class="skel skel-line" style="width:100px;height:10px"></div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function skeletonProfileCard() {
+  return `<div class="profile-card" style="gap:14px;padding:24px">
+    <div class="skel" style="width:72px;height:72px;border-radius:50%;margin:0 auto"></div>
+    <div class="skel skel-line" style="width:140px;height:20px;margin:0 auto"></div>
+    <div class="skel skel-line" style="width:100px;height:14px;margin:0 auto"></div>
+    <div class="skel skel-line" style="width:180px;height:12px;margin:0 auto"></div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:4px">
+      <div class="skel" style="width:100px;height:36px;border-radius:12px"></div>
+      <div class="skel" style="width:100px;height:36px;border-radius:12px"></div>
+    </div>
+  </div>`;
+}
+
 // ── Profile modal ─────────────────────────────────────────────
 async function openProfile(user) {
   if (!user) return;
   const body = document.getElementById('profile-modal-body');
-  body.innerHTML = `<div class="empty-state"><div class="skel" style="width:72px;height:72px;border-radius:50%;margin:0 auto 12px"></div></div>`;
+  body.innerHTML = skeletonProfileCard();
   openModal('m-profile');
 
   try {
@@ -319,7 +577,7 @@ async function openProfile(user) {
     const sentReq = state.friendRequestsSent?.some(u => u.id === user.id);
     const recvReq = state.friendRequestsReceived?.some(u => u.id === user.id);
 
-    let actionBtns = '';
+      let actionBtns = '';
     if (isFriend) {
       actionBtns = `<button class="btn-secondary" onclick="startChat('${user.id}');closeModal()"><i class="fa fa-comment"></i> Message</button>
                     <button class="btn-danger" onclick="doRemoveFriend('${user.id}')"><i class="fa fa-user-minus"></i> Remove</button>`;
@@ -333,7 +591,7 @@ async function openProfile(user) {
 
     const mutualHtml = mutual?.length ? (() => {
       const MAX = 5;
-      const chips = mutual.map(m => `<div class="mutual-chip">${makeAvEl(m,'xs').outerHTML}<span>${esc(m.display_name)}</span></div>`);
+      const chips = mutual.map(m => `<div class="mutual-chip" onclick="openProfile(${safeJsonForOnclick(m)})">${makeAvEl(m,'xs').outerHTML}<span>${esc(m.display_name)}</span></div>`);
       const visible = chips.slice(0, MAX);
       const remaining = chips.slice(MAX);
       const extra = remaining.length;
@@ -348,6 +606,10 @@ async function openProfile(user) {
     })() : '';
 
     const bio = user.bio ? esc(user.bio) : '';
+    const joinedDate = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '';
+    const lastSeenHtml = user.is_online
+      ? `<div class="pc-detail-row"><i class="fa fa-circle" style="color:var(--accent);font-size:8px"></i> Online now</div>`
+      : `<div class="pc-detail-row"><i class="fa fa-clock"></i> ${fmtLastSeen(user.last_seen)}</div>`;
     body.innerHTML = `
       <div class="profile-card">
         ${av.outerHTML}
@@ -356,15 +618,39 @@ async function openProfile(user) {
         ${bio ? `<div class="pc-bio">${bio}</div>` : ''}
         <div class="pc-pronouns">${esc(user.pronouns || '')}</div>
         ${getRoleBadge(user.role)}
-        <div style="font-size:12px;color:${user.is_online ? 'var(--accent)' : 'var(--txt3)'}">
-          <i class="fa fa-circle" style="font-size:8px"></i> ${user.is_online ? 'Online' : fmtLastSeen(user.last_seen)}
-        </div>
+        ${lastSeenHtml}
+        ${joinedDate ? `<div class="pc-detail-row"><i class="fa fa-calendar"></i> Joined ${joinedDate}</div>` : ''}
         <div class="pc-actions">${actionBtns}</div>
         ${mutualHtml}
       </div>`;
   } catch (err) {
     body.innerHTML = `<p style="color:var(--danger)">${err.message}</p>`;
   }
+}
+
+// ── Network status detection ──────────────────────────────────
+function initNetworkMonitor() {
+  window.addEventListener('offline', function() {
+    showToast('Network disconnected. Please check your connection.', 'error');
+  });
+  window.addEventListener('online', function() {
+    showToast('Connection restored!', 'success');
+  });
+}
+
+// ── Human-readable error messages ────────────────────────────
+function friendlyError(err) {
+  if (!err) return 'Something went wrong. Please try again.';
+  if (err.name === 'TypeError' && err.message === 'Failed to fetch') return 'Network error. Please check your connection.';
+  if (err.message === 'NetworkError when attempting to fetch resource.') return 'Network error. Please check your connection.';
+  const msg = String(err.message || err);
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Network error. Please check your connection.';
+  if (msg.includes('timeout') || msg.includes('Timeout')) return 'Request timed out. Please try again.';
+  if (msg.includes('too large') || msg.includes('Too large')) return 'File is too large. Please choose a smaller file.';
+  if (msg.includes('rate limit') || msg.includes('Rate limit')) return 'Too many requests. Please slow down.';
+  if (msg.includes('not found') || msg.includes('Not found')) return 'Resource not found. It may have been removed.';
+  if (msg.includes('forbidden') || msg.includes('Forbidden')) return 'You do not have permission for this action.';
+  return msg;
 }
 
 // ── Filter sidebar ─────────────────────────────────────────────
@@ -443,6 +729,4 @@ function updateFriendOnlineStatus(userId, isOnline, lastSeen) {
   }
 }
 
-function showFriendReqDot() {
-  updateFriendReqBadge();
-}
+

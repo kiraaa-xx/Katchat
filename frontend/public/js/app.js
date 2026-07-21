@@ -86,6 +86,7 @@ async function enterApp() {
 
   updateTopbarAv();
   updateThemeLogos();
+  initNetworkMonitor();
   initSocket(state.token);
   await loadFriends();
   showView('welcome');

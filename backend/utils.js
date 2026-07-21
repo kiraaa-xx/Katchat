@@ -25,4 +25,9 @@ const sendError = (res, err) => {
   res.status(status).json({ error: err.message });
 };
 
-module.exports = { imageFileFilter, sendError };
+const sanitizeText = (str, maxLen = 5000) => {
+  if (typeof str !== 'string') return '';
+  return str.replace(/<[^>]*>/g, '').replace(/[<>]/g, '').trim().slice(0, maxLen);
+};
+
+module.exports = { imageFileFilter, sendError, sanitizeText };

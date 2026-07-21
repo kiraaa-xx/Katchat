@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const supabase = require('../supabase');
+const stripHtml = (s) => typeof s === 'string' ? s.replace(/<[^>]*>/g, '').trim().slice(0, 5000) : '';
 
 const onlineUsers = new Map(); // userId -> socketId
 
@@ -40,9 +41,11 @@ module.exports = (io) => {
 
     socket.on('send_private_message', async ({ recipientId, content, replyTo, tempId }) => {
       try {
+        const safeContent = stripHtml(content);
+        if (!safeContent && !replyTo) return;
         const convId = [uid, recipientId].sort().join('_');
-        const { data: message } = await supabase.from('messages').insert({ sender_id: uid, content, type: 'private', conversation_id: convId, reply_to: replyTo || null }).select().single();
-        const { data: sender } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role').eq('id', uid).single();
+        const { data: message } = await supabase.from('messages').insert({ sender_id: uid, content: safeContent, type: 'private', conversation_id: convId, reply_to: replyTo || null }).select().single();
+        const { data: sender } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,bio,created_at,pronouns,is_online,last_seen').eq('id', uid).single();
         let replyData = null;
         if (replyTo) { const { data: r } = await supabase.from('messages').select('id,content,sender_id').eq('id', replyTo).single(); replyData = r; }
         const enriched = { ...message, sender, reply_to_msg: replyData, tempId };
@@ -54,6 +57,8 @@ module.exports = (io) => {
 
     socket.on('send_global_message', async ({ content, replyTo, mentions }) => {
       try {
+        const safeContent = stripHtml(content);
+        if (!safeContent && !replyTo) return;
         const { data: freshUser } = await supabase.from('users').select('is_banned_from_global,ban_reason,role,temp_ban_until').eq('id', uid).single();
         if (freshUser?.is_banned_from_global) {
           if (freshUser.temp_ban_until && new Date(freshUser.temp_ban_until) < new Date()) {
@@ -69,8 +74,8 @@ module.exports = (io) => {
         const { data: roleData } = await supabase.from('roles').select('permissions').eq('name', userRole).single();
         if (roleData?.permissions?.canUseCommands && content.startsWith('/')) { await handleCommand(socket, io, content, onlineUsers); return; }
         const isOwner = userRole === 'owner';
-        const { data: message } = await supabase.from('messages').insert({ sender_id: uid, content, type: 'global', reply_to: replyTo || null, mentions: mentions || [], is_owner_message: isOwner }).select().single();
-        const { data: sender } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,bio').eq('id', uid).single();
+        const { data: message } = await supabase.from('messages').insert({ sender_id: uid, content: safeContent, type: 'global', reply_to: replyTo || null, mentions: mentions || [], is_owner_message: isOwner }).select().single();
+        const { data: sender } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role,bio,created_at,pronouns,is_online,last_seen').eq('id', uid).single();
         let replyData = null;
         if (replyTo) { const { data: r } = await supabase.from('messages').select('id,content,sender_id').eq('id', replyTo).single(); replyData = r; }
         io.to('global').emit('new_global_message', { ...message, sender, reply_to_msg: replyData });
@@ -134,7 +139,9 @@ async function handleCommand(socket, io, content, onlineUsers) {
   const target = cmdMatch[2];
   const reason = cmdMatch[3] || null;
   const hoursArg = cmdMatch[4] || cmdMatch[3];
-  const { data: targetUser } = await supabase.from('users').select('id,username,display_name,role,is_banned_from_global').or(`username.ilike.${target},display_name.ilike.${target}`).maybeSingle();
+  const safeTarget = target.replace(/[%_'()]/g, '').trim();
+  if (!safeTarget) return socket.emit('error', { message: 'Invalid target' });
+  const { data: targetUser } = await supabase.from('users').select('id,username,display_name,role,is_banned_from_global').or(`username.ilike.${safeTarget},display_name.ilike.${safeTarget}`).maybeSingle();
   if (!targetUser) return socket.emit('error', { message: `User "@${target}" not found` });
   if (cmd === '/ban' || cmd === '/tban') {
     if (socket.user.role === 'admin' && ['admin','owner'].includes(targetUser.role)) return socket.emit('error', { message: 'Cannot ban admin or owner' });

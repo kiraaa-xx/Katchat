@@ -1,4 +1,6 @@
 async function loadFriends() {
+  document.getElementById('chat-list').innerHTML = skeletonChatItems(6);
+  document.getElementById('friends-list').innerHTML = skeletonChatItems(4);
   try {
     const data = await api.getFriends();
     state.friends = data.friends || [];
@@ -30,7 +32,7 @@ function renderChatList() {
   const list = document.getElementById('chat-list');
   list.innerHTML = '';
   if (!state.friends.length) {
-    list.innerHTML = '<div class="empty-state"><i class="fa fa-user-group"></i><p>No chats yet. Add some friends!</p></div>';
+    list.innerHTML = '<div class="empty-state"><i class="fa fa-comments"></i><h4 class="es-title">No chats yet</h4><p>Find friends and start chatting! Use the <strong>+</strong> button to add people.</p></div>';
     return;
   }
   const sorted = [...state.friends].sort((a, b) => b.is_online - a.is_online);
@@ -62,7 +64,7 @@ function renderFriendsList() {
   const online = state.friends.filter(f => f.is_online);
   const offline = state.friends.filter(f => !f.is_online);
   if (!state.friends.length) {
-    list.innerHTML = '<div class="empty-state"><i class="fa fa-user-plus"></i><p>No friends yet</p></div>';
+    list.innerHTML = '<div class="empty-state"><i class="fa fa-user-plus"></i><h4 class="es-title">No friends yet</h4><p>Search for people using the <strong>+</strong> button above and send them a friend request!</p></div>';
     return;
   }
   if (online.length) {
@@ -87,13 +89,18 @@ function makeFriendItem(friend) {
   item.dataset.friendId = friend.id;
   item.onclick = () => openPrivateChat(friend);
   const av = makeAvEl(friend, 'md');
-  item.innerHTML = `
-    ${av.outerHTML}
-    <div class="fi-info">
-      <div class="fi-name">${esc(friend.display_name)}</div>
-      <div class="fi-status ${friend.is_online ? 'online' : ''}">${friend.is_online ? '\u25cf Online' : fmtLastSeen(friend.last_seen)}</div>
-    </div>
-    <button class="icon-btn" onclick="event.stopPropagation();openProfile(${safeJsonForOnclick(friend)})" title="View Profile"><i class="fa fa-ellipsis-vertical"></i></button>`;
+  av.style.cursor = 'pointer';
+  av.setAttribute('title', 'View profile');
+  const info = document.createElement('div');
+  info.className = 'fi-info';
+  info.innerHTML = '<div class="fi-name">' + esc(friend.display_name) + '</div><div class="fi-status ' + (friend.is_online ? 'online' : '') + '">' + (friend.is_online ? '\u25cf Online' : fmtLastSeen(friend.last_seen)) + '</div>';
+  const btn = document.createElement('button');
+  btn.className = 'icon-btn';
+  btn.setAttribute('title', 'View Profile');
+  btn.innerHTML = '<i class="fa fa-ellipsis-vertical"></i>';
+  btn.onclick = function(e) { e.stopPropagation(); openProfile(friend); };
+  av.onclick = function(e) { e.stopPropagation(); openProfile(friend); };
+  item.append(av, info, btn);
   return item;
 }
 
@@ -110,8 +117,9 @@ function openAddFriend() {
 }
 
 function switchFriendTab(tab, btn) {
-  document.querySelectorAll('.ftab').forEach(function (b) { b.classList.remove('active'); });
+  document.querySelectorAll('.ftab').forEach(function (b) { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
   btn.classList.add('active');
+  btn.setAttribute('aria-selected', 'true');
   document.getElementById('ft-search').classList.toggle('hidden', tab !== 'search');
   document.getElementById('ft-requests').classList.toggle('hidden', tab !== 'requests');
   if (tab === 'requests') renderFriendRequests();
@@ -135,7 +143,7 @@ function renderIncomingRequests() {
   if (!section) return;
   var list = state.friendRequestsReceived || [];
   if (!list.length) {
-    section.innerHTML = '<div class="friend-req-section"><h4 class="friend-req-label"><i class="fa fa-inbox"></i> Incoming</h4><div class="empty-state" style="padding:16px"><i class="fa fa-envelope-open"></i><p>No pending requests</p></div></div>';
+    section.innerHTML = '<div class="friend-req-section"><h4 class="friend-req-label"><i class="fa fa-inbox"></i> Incoming</h4><div class="empty-state" style="padding:16px"><i class="fa fa-envelope-open"></i><h4 class="es-title">No pending requests</h4><p>When someone sends you a friend request, it will appear here.</p></div></div>';
     return;
   }
   var html = '<div class="friend-req-section"><h4 class="friend-req-label"><i class="fa fa-inbox"></i> Incoming <span class="req-count">' + list.length + '</span></h4>';
@@ -183,12 +191,14 @@ async function loadSuggestions() {
     var suggestions = data.suggestions || [];
     results.innerHTML = '';
     if (!suggestions.length) {
-      results.innerHTML = '<div class="suggestions-section"><div class="suggestions-title"><i class="fa fa-users"></i> Suggested People</div><div class="empty-state" style="padding:20px"><i class="fa fa-user-plus"></i><p>No suggestions yet — add some friends first!</p></div></div>';
+      results.innerHTML = '<div class="suggestions-section"><div class="suggestions-title"><i class="fa fa-users"></i> Suggested People</div><div class="empty-state" style="padding:20px"><i class="fa fa-user-plus"></i><h4 class="es-title">No suggestions yet</h4><p>Start by adding a few friends and we will recommend more people you might know!</p></div></div>';
       return;
     }
     var html = '<div class="suggestions-section"><div class="suggestions-title"><i class="fa fa-users"></i> People You May Know</div>';
     suggestions.forEach(function (u) {
       var av = makeAvEl(u, 'md');
+      av.setAttribute('onclick', 'event.stopPropagation();openProfile(' + safeJsonForOnclick(u) + ')');
+      av.style.cursor = 'pointer';
       var mutualText = u.mutual_count > 0 ? '<span class="mutual-badge"><i class="fa fa-user-friends"></i> ' + u.mutual_count + ' mutual</span>' : '';
       var isFriend = state.friends.some(function (f) { return f.id === u.id; });
       var sent = state.friendRequestsSent ? state.friendRequestsSent.some(function (s) { return s.id === u.id; }) : false;
@@ -209,7 +219,7 @@ async function loadSuggestions() {
     html += '</div>';
     results.innerHTML = html;
   } catch (err) {
-    results.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fa fa-circle-exclamation"></i><p>Could not load suggestions</p></div>';
+    results.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fa fa-circle-exclamation"></i><h4 class="es-title">Could not load suggestions</h4><p>' + esc(friendlyError(err) || 'Check your connection and try again.') + '</p></div>';
   }
 }
 
@@ -224,14 +234,14 @@ function searchUsers(q) {
     loadSuggestions();
     return;
   }
-  results.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fa fa-spinner fa-spin"></i></div>';
+  results.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fa fa-spinner fa-spin" style="font-size:22px"></i><p style="font-size:12px;color:var(--txt3)">Searching...</p></div>';
   searchDebounce = setTimeout(async function () {
     try {
       var data = await api.searchUsers(q);
       var users = data.users || [];
       results.innerHTML = '';
       if (!users.length) {
-        results.innerHTML = '<div class="empty-state" style="padding:24px"><i class="fa fa-user-slash"></i><p>No users found</p><span style="font-size:12px;color:var(--txt3);margin-top:4px">Try a different name or username</span></div>';
+        results.innerHTML = '<div class="empty-state" style="padding:24px"><i class="fa fa-user-slash"></i><h4 class="es-title">No users found</h4><p>Try a different name or username to find who you are looking for.</p></div>';
         return;
       }
       results.innerHTML = '<div class="friend-result-count">Found ' + users.length + ' user' + (users.length > 1 ? 's' : '') + '</div>';
@@ -245,6 +255,8 @@ function searchUsers(q) {
         else if (recv) btn = '<button class="fri-result-btn accept" onclick="doAcceptFriend(\'' + u.id + '\')"><i class="fa fa-check"></i> Accept</button>';
         else btn = '<button class="fri-result-btn add" onclick="doSendFriendReq(\'' + u.id + '\')"><i class="fa fa-user-plus"></i> Add</button>';
         var av = makeAvEl(u, 'md');
+        av.setAttribute('onclick', 'event.stopPropagation();openProfile(' + safeJsonForOnclick(u) + ')');
+        av.style.cursor = 'pointer';
         var row = document.createElement('div');
         row.className = 'friend-result-row';
         row.innerHTML = av.outerHTML +
@@ -256,7 +268,7 @@ function searchUsers(q) {
         results.appendChild(row);
       });
     } catch (err) {
-      results.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fa fa-circle-exclamation"></i><p>' + err.message + '</p></div>';
+      results.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fa fa-circle-exclamation"></i><h4 class="es-title">Search failed</h4><p>' + esc(friendlyError(err)) + '</p></div>';
     }
   }, 350);
 }

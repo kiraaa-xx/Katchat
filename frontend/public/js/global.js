@@ -48,14 +48,14 @@ async function openGlobal() {
     renderGlobalMsgs(messages, container);
     scrollToBottom('global-msgs');
   } catch (err) {
-    container.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${err.message}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa fa-circle-exclamation"></i><p>${friendlyError(err) || 'Failed to load messages.'}</p></div>`;
   }
 }
 
 function renderGlobalMsgs(messages, container) {
   container.innerHTML = '';
   if (!messages.length) {
-    container.innerHTML = `<div class="empty-state"><i class="fa fa-globe"></i><p>Be the first to say something!</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa fa-globe"></i><h4 class="es-title">No messages yet</h4><p>Be the first to say something in the global chat!</p></div>`;
     return;
   }
   let lastDate = null;
