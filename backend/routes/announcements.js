@@ -4,9 +4,11 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const supabase = require('../supabase');
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, getUserPermissions } = require('../middleware/auth');
 const { validateMaxLength } = require('../error-handler');
-const { imageFileFilter, sanitizeText } = require('../utils');
+const { imageFileFilter, sanitizeText, makeUploadFilename, validateUploadedImage, removeUploadedFile, sendError } = require('../utils');
+
+const isUuid = (s) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -14,7 +16,7 @@ const storage = multer.diskStorage({
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (req, file, cb) => cb(null, `ann_${Date.now()}${path.extname(file.originalname)}`)
+  filename: (req, file, cb) => cb(null, makeUploadFilename(file.mimetype))
 });
 const upload = multer({
   storage,
@@ -36,32 +38,43 @@ router.get('/', auth, async (req, res) => {
   try {
     const { data } = await supabase.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false });
     res.json({ announcements: await enrichAnnouncements(data || []) });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // Create announcement
 router.post('/', auth, adminOnly, upload.single('image'), async (req, res) => {
+  const removeFile = () => { if (req.file) removeUploadedFile(req.file.path); };
   try {
     const { title, content, pinned } = req.body;
-    if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+    if (!title || !content) { removeFile(); return res.status(400).json({ error: 'Title and content required' }); }
+    if (req.file) {
+      const sigErr = validateUploadedImage(req.file.path);
+      if (sigErr) { removeFile(); return res.status(400).json({ error: sigErr.message }); }
+    }
     const lenErr = validateMaxLength({ title, content }, { title: 200, content: 5000 });
-    if (lenErr) return res.status(400).json({ error: lenErr });
+    if (lenErr) { removeFile(); return res.status(400).json({ error: lenErr }); }
     const safeTitle = sanitizeText(title, 200);
     const safeContent = sanitizeText(content, 5000);
-    if (!safeTitle || !safeContent) return res.status(400).json({ error: 'Title and content required' });
+    if (!safeTitle || !safeContent) { removeFile(); return res.status(400).json({ error: 'Title and content required' }); }
     const image = req.file ? `/uploads/announcements/${req.file.filename}` : null;
     const { data } = await supabase.from('announcements').insert({ title: safeTitle, content: safeContent, image, author_id: req.user.id, pinned: pinned === 'true' }).select().single();
     const enriched = await enrichAnnouncements([data]);
     res.json({ announcement: enriched[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { removeFile(); sendError(res, err); }
 });
 
 // Update announcement
 router.put('/:id', auth, adminOnly, upload.single('image'), async (req, res) => {
+  const removeFile = () => { if (req.file) removeUploadedFile(req.file.path); };
   try {
+    if (!isUuid(req.params.id)) { removeFile(); return res.status(400).json({ error: 'Invalid announcement ID' }); }
     const { title, content, pinned } = req.body;
+    if (req.file) {
+      const sigErr = validateUploadedImage(req.file.path);
+      if (sigErr) { removeFile(); return res.status(400).json({ error: sigErr.message }); }
+    }
     const lenErr = validateMaxLength({ title, content }, { title: 200, content: 5000 });
-    if (lenErr) return res.status(400).json({ error: lenErr });
+    if (lenErr) { removeFile(); return res.status(400).json({ error: lenErr }); }
     const updates = { updated_at: new Date().toISOString() };
     if (title) updates.title = sanitizeText(title, 200);
     if (content) updates.content = sanitizeText(content, 5000);
@@ -70,16 +83,17 @@ router.put('/:id', auth, adminOnly, upload.single('image'), async (req, res) => 
     const { data } = await supabase.from('announcements').update(updates).eq('id', req.params.id).select().single();
     const enriched = await enrichAnnouncements([data]);
     res.json({ announcement: enriched[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { removeFile(); sendError(res, err); }
 });
 
 // Delete announcement
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid announcement ID' });
     await supabase.from('announcement_comments').delete().eq('announcement_id', req.params.id);
     await supabase.from('announcements').delete().eq('id', req.params.id);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // ── Comments ──────────────────────────────────────────────────
@@ -94,33 +108,38 @@ router.get('/:id/comments', auth, async (req, res) => {
     const userMap = {};
     (users || []).forEach(u => userMap[u.id] = u);
     res.json({ comments: comments.map(c => ({ ...c, author: userMap[c.author_id] || {} })) });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.post('/:id/comments', auth, async (req, res) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid announcement ID' });
     // Check if banned
     const { data: user } = await supabase.from('users').select('is_banned_from_global').eq('id', req.user.id).single();
     if (user?.is_banned_from_global) return res.status(403).json({ error: 'Banned users cannot comment' });
+    // Respect canCommentAnnouncements permission (members may still be restricted by custom roles)
+    const perms = await getUserPermissions(req.user.id);
+    if (perms && !perms.permissions.canCommentAnnouncements) return res.status(403).json({ error: 'You do not have permission to comment' });
     const safeContent = sanitizeText(req.body.content, 1000);
     if (!safeContent) return res.status(400).json({ error: 'Comment cannot be empty' });
     const { data: comment } = await supabase.from('announcement_comments')
       .insert({ announcement_id: req.params.id, author_id: req.user.id, content: safeContent }).select().single();
     const { data: author } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color,role').eq('id', req.user.id).single();
     res.json({ comment: { ...comment, author } });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.delete('/:annId/comments/:commentId', auth, async (req, res) => {
   try {
+    if (!isUuid(req.params.annId) || !isUuid(req.params.commentId)) return res.status(400).json({ error: 'Invalid ID' });
     const { data: comment } = await supabase.from('announcement_comments').select('author_id').eq('id', req.params.commentId).single();
     if (!comment) return res.status(404).json({ error: 'Comment not found' });
     const { data: role } = await supabase.from('roles').select('permissions').eq('name', req.user.role).single();
-    const canDelete = comment.author_id === req.user.id || role?.permissions?.canDeleteMessages;
+    const canDelete = comment.author_id === req.user.id || role?.permissions?.canDeleteMessages || ['admin', 'owner'].includes(req.user.role);
     if (!canDelete) return res.status(403).json({ error: 'Not authorized' });
     await supabase.from('announcement_comments').update({ deleted: true }).eq('id', req.params.commentId);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 module.exports = router;

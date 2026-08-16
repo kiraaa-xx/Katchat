@@ -4,9 +4,11 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const supabase = require('../supabase');
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, getUserPermissions } = require('../middleware/auth');
 const { validateMaxLength } = require('../error-handler');
-const { imageFileFilter, sanitizeText } = require('../utils');
+const { imageFileFilter, sanitizeText, makeUploadFilename, validateUploadedImage, removeUploadedFile, sendError } = require('../utils');
+
+const isUuid = (s) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -14,7 +16,7 @@ const storage = multer.diskStorage({
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (req, file, cb) => cb(null, `msg_${Date.now()}_${Math.random().toString(36).substr(2,6)}${path.extname(file.originalname)}`)
+  filename: (req, file, cb) => cb(null, makeUploadFilename(file.mimetype))
 });
 const upload = multer({
   storage,
@@ -45,11 +47,19 @@ const enrichMessages = async (messages) => {
   }));
 };
 
+const areFriends = async (a, b) => {
+  const { data: r1 } = await supabase.from('friends').select('status').eq('user_id', a).eq('friend_id', b).maybeSingle();
+  if (r1?.status === 'accepted') return true;
+  const { data: r2 } = await supabase.from('friends').select('status').eq('user_id', b).eq('friend_id', a).maybeSingle();
+  return r2?.status === 'accepted';
+};
+
 // Get private messages
 router.get('/private/:userId', auth, async (req, res) => {
   try {
+    if (!isUuid(req.params.userId)) return res.status(400).json({ error: 'Invalid user ID' });
     const convId = [req.user.id, req.params.userId].sort().join('_');
-    const page = parseInt(req.query.page || 1);
+    const page = Math.max(1, parseInt(req.query.page || 1) || 1);
     const limit = 50;
     const { data: messages } = await supabase.from('messages')
       .select('*').eq('conversation_id', convId).eq('deleted', false)
@@ -68,31 +78,51 @@ router.get('/private/:userId', auth, async (req, res) => {
       }
     } catch (_) { /* best-effort read tracking */ }
     res.json({ messages: enriched });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // Get global messages
 router.get('/global', auth, async (req, res) => {
   try {
-    const page = parseInt(req.query.page || 1);
+    const page = Math.max(1, parseInt(req.query.page || 1) || 1);
     const { data: messages } = await supabase.from('messages')
       .select('*').eq('type', 'global').eq('deleted', false)
-      .order('created_at', { ascending: false }).range(0, 99);
+      .order('created_at', { ascending: false }).range((page-1)*100, page*100-1);
     const enriched = await enrichMessages((messages || []).reverse());
     res.json({ messages: enriched });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // Send private message with images
 router.post('/private/:userId', auth, upload.array('images', 5), async (req, res) => {
+  const removeFiles = () => { for (const f of req.files || []) removeUploadedFile(f.path); };
   try {
     const { content, replyTo } = req.body;
+    if (!isUuid(req.params.userId)) { removeFiles(); return res.status(400).json({ error: 'Invalid user ID' }); }
+    if (req.params.userId === req.user.id) { removeFiles(); return res.status(400).json({ error: 'Cannot message yourself' }); }
+
+    // Recipient must exist and be an accepted friend
+    const { data: recipient } = await supabase.from('users').select('id').eq('id', req.params.userId).maybeSingle();
+    if (!recipient) { removeFiles(); return res.status(404).json({ error: 'User not found' }); }
+    if (!(await areFriends(req.user.id, req.params.userId))) { removeFiles(); return res.status(403).json({ error: 'You can only message your friends' }); }
+    const perms = await getUserPermissions(req.user.id);
+    if (!perms?.permissions?.canChat) { removeFiles(); return res.status(403).json({ error: 'You do not have permission to chat' }); }
+
+    // Validate every uploaded file by content signature
+    for (const f of req.files || []) {
+      const sigErr = validateUploadedImage(f.path);
+      if (sigErr) {
+        removeFiles();
+        return res.status(400).json({ error: sigErr.message });
+      }
+    }
+
     const convId = [req.user.id, req.params.userId].sort().join('_');
     const images = req.files ? req.files.map(f => `/uploads/messages/${f.filename}`) : [];
     const safeContent = sanitizeText(content, 5000);
-    if (!safeContent && !images.length) return res.status(400).json({ error: 'Message cannot be empty' });
+    if (!safeContent && !images.length) { removeFiles(); return res.status(400).json({ error: 'Message cannot be empty' }); }
     const lenErr = validateMaxLength({ content: safeContent }, { content: 5000 });
-    if (lenErr) return res.status(400).json({ error: lenErr });
+    if (lenErr) { removeFiles(); return res.status(400).json({ error: lenErr }); }
     
     // Check image upload limit
     if (images.length > 0) {
@@ -101,6 +131,7 @@ router.post('/private/:userId', auth, upload.array('images', 5), async (req, res
         .select('count').eq('user_id', req.user.id).eq('upload_date', today).maybeSingle();
       const currentCount = imageUploadData?.count || 0;
       if (currentCount + images.length > 5) {
+        removeFiles();
         return res.status(429).json({ error: `Daily image limit reached. Can upload ${Math.max(0, 5 - currentCount)} more today.` });
       }
       // Increment count
@@ -125,20 +156,21 @@ router.post('/private/:userId', auth, upload.array('images', 5), async (req, res
       if (recipientSocket) io.to(recipientSocket).emit('new_private_message', enriched[0]);
     } catch (_) { /* best-effort socket notification */ }
     res.json({ message: enriched[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { removeFiles(); sendError(res, err); }
 });
 
 // Delete message
 router.delete('/:messageId', auth, async (req, res) => {
   try {
-    const { data: message } = await supabase.from('messages').select('sender_id,type').eq('id', req.params.messageId).single();
+    if (!isUuid(req.params.messageId)) return res.status(400).json({ error: 'Invalid message ID' });
+    const { data: message } = await supabase.from('messages').select('sender_id,type').eq('id', req.params.messageId).maybeSingle();
     if (!message) return res.status(404).json({ error: 'Not found' });
-    const { data: role } = await supabase.from('roles').select('permissions').eq('name', req.user.role).single();
-    const canDelete = message.sender_id === req.user.id || role?.permissions?.canDeleteMessages;
+    const { data: role } = await supabase.from('roles').select('permissions').eq('name', req.user.role).maybeSingle();
+    const canDelete = message.sender_id === req.user.id || role?.permissions?.canDeleteMessages || ['admin', 'owner'].includes(req.user.role);
     if (!canDelete) return res.status(403).json({ error: 'Not authorized' });
     await supabase.from('messages').update({ deleted: true, content: '', images: [], deleted_at: new Date().toISOString() }).eq('id', req.params.messageId);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // Unread counts
@@ -157,7 +189,7 @@ router.get('/unread-counts', auth, async (req, res) => {
       if (count > 0) counts[fid] = count;
     }
     res.json({ counts });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 module.exports = router;

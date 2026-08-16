@@ -175,8 +175,20 @@ async function sendPrivate() {
     await doUpload();
   } else {
     const tempId = `temp_${Date.now()}`;
-    if (socket) {
+    if (socket && socket.connected) {
       socket.emit('send_private_message', { recipientId: activeFriend.id, content, replyTo: replyToMsg?.id, tempId });
+    } else {
+      // No live socket (reconnecting) — fall back to REST so the message is not lost
+      try {
+        const data = await req('POST', `/messages/private/${activeFriend.id}`, { content, replyTo: replyToMsg?.id });
+        if (data.message) {
+          data.message.tempId = tempId;
+          appendPrivateMsg(data.message);
+        }
+      } catch (err) {
+        showToast(err.message || 'Message failed to send — reconnecting...', 'error');
+        return;
+      }
     }
     const optimistic = { id: null, tempId, sender_id: state.user.id, sender: state.user, content, created_at: new Date().toISOString(), reply_to_msg: replyToMsg ? { id: replyToMsg.id, content: replyToMsg.content } : null };
     appendPrivateMsg(optimistic);

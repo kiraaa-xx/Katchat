@@ -9,8 +9,9 @@ async function openAnnouncements() {
   try {
     const { announcements } = await api.getAnnouncements();
     if (announcements && announcements.length) {
-      const maxId = Math.max(...announcements.map(a => a.id));
-      localStorage.setItem('kc_last_announcement_id', String(maxId));
+      // Track by created_at (ids are UUIDs — Math.max would be NaN)
+      const latestTs = Math.max(...announcements.map(a => new Date(a.created_at).getTime()));
+      if (isFinite(latestTs)) localStorage.setItem('kc_last_announcement_ts', String(latestTs));
     }
     renderAnnouncements(announcements, container);
   } catch (err) {
@@ -327,13 +328,15 @@ function openAnnImageViewer(src) {
     panOrigX = imgPanX; panOrigY = imgPanY;
     imgEl.classList.add('iv-dragging');
   });
-  window.addEventListener('mousemove', function(e) {
+  const annPanMoveHandler = function(e) {
     if (!isPanning) return;
     imgPanX = panOrigX + (e.clientX - panStartX);
     imgPanY = panOrigY + (e.clientY - panStartY);
     applyTransform();
-  });
-  window.addEventListener('mouseup', function() { if (isPanning) { isPanning = false; imgEl.classList.remove('iv-dragging'); } });
+  };
+  const annPanUpHandler = function() { if (isPanning) { isPanning = false; imgEl.classList.remove('iv-dragging'); } };
+  window.addEventListener('mousemove', annPanMoveHandler);
+  window.addEventListener('mouseup', annPanUpHandler);
 
   imgEl.addEventListener('dblclick', function(e) {
     e.preventDefault();
@@ -350,10 +353,13 @@ function openAnnImageViewer(src) {
 
   function removeAnnImgViewer() {
     isPanning = false;
+    window.removeEventListener('mousemove', annPanMoveHandler);
+    window.removeEventListener('mouseup', annPanUpHandler);
+    document.removeEventListener('keydown', escHandler);
     overlay.remove();
   }
 
-  const escHandler = (e) => { if (e.key === 'Escape') { removeAnnImgViewer(); document.removeEventListener('keydown', escHandler); } };
+  const escHandler = (e) => { if (e.key === 'Escape') { removeAnnImgViewer(); } };
   document.addEventListener('keydown', escHandler);
   overlay.onclick = (e) => { if (e.target === overlay || e.target.classList.contains('ann-img-viewer-close')) removeAnnImgViewer(); };
 }

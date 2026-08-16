@@ -4,6 +4,17 @@ const { auth } = require('../middleware/auth');
 const supabase = require('../supabase');
 const { errorLogger } = require('../error-handler');
 
+// Per-user sliding-window throttle for Sage calls (12 / minute)
+const sageCalls = new Map();
+const sageThrottle = (userId) => {
+  const now = Date.now();
+  const times = (sageCalls.get(userId) || []).filter((t) => now - t < 60000);
+  if (times.length >= 12) return false;
+  times.push(now);
+  sageCalls.set(userId, times);
+  return true;
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // SAGE AI — Groq is the only provider.
 // ═══════════════════════════════════════════════════════════════════
@@ -191,6 +202,32 @@ const isRecoverableHttp = (status) => {
   return false;
 };
 
+// Groq free-tier models frequently return 503 "over capacity" for a few
+// seconds. Retry transient failures with exponential backoff so a single
+// hiccup doesn't kill the whole message.
+const MAX_RETRIES = 2;
+const RETRY_BASE_MS = 800;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Retries the provider call on transient errors (429/5xx/network blips).
+// Non-transient errors (401, 404, bad request) fail immediately.
+async function callWithRetry(label, provider, fn) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn(provider);
+    } catch (err) {
+      // Recoverable unless explicitly flagged non-recoverable.
+      const transient = err.recoverable !== false;
+      if (!transient || attempt >= MAX_RETRIES) throw err;
+      const wait = RETRY_BASE_MS * Math.pow(2, attempt);
+      console.warn(`[Sage:${label}] ${provider.name} transient failure, retry ${attempt + 1}/${MAX_RETRIES} in ${wait}ms: ${err.message}`);
+      await sleep(wait);
+      attempt++;
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Groq — the primary (and only) AI provider for Sage
 // ─────────────────────────────────────────────────────────────────────
@@ -201,7 +238,7 @@ const groqProvider = {
     return !!(k && !k.includes('your_'));
   },
   _visionModel() {
-    return process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+    return process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
   },
   async chat(messages, { systemPrompt, imageBase64, imageMime }) {
     const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
@@ -395,7 +432,7 @@ async function runWithFailover(label, fn) {
     const provider = chain[i];
     const startedAt = Date.now();
     try {
-      const text = await fn(provider);
+      const text = await callWithRetry(label, provider, fn);
       const ms = Date.now() - startedAt;
       console.log(`[Sage:${label}] ${provider.name} ok (${ms}ms${i > 0 ? ', via fallback' : ''})`);
       return { text, provider: provider.name, usedFallback: i > 0 };
@@ -439,10 +476,26 @@ async function getAnnouncementsContext() {
 // ═══════════════════════════════════════════════════════════════════
 
 // ── Chat Endpoint ─────────────────────────────────────────────
+const SAGE_ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 router.post('/chat', auth, async (req, res) => {
   try {
+    if (!sageThrottle(req.user.id)) {
+      return res.status(429).json({ error: 'Sage is busy right now. Please wait a moment and try again.' });
+    }
     const { messages, imageBase64, imageMime, chatId } = req.body;
-    if (!messages?.length) return res.status(400).json({ error: 'Messages required' });
+    if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: 'Messages required' });
+    if (messages.length > 20) return res.status(400).json({ error: 'Too many messages' });
+    for (const m of messages) {
+      if (!m || !['user', 'assistant'].includes(m.role) || typeof m.content !== 'string' || m.content.length > 5000) {
+        return res.status(400).json({ error: 'Invalid message format' });
+      }
+    }
+    if (imageBase64 && (typeof imageBase64 !== 'string' || imageBase64.length > 8000000)) {
+      return res.status(400).json({ error: 'Image is too large' });
+    }
+    if (imageMime && !SAGE_ALLOWED_MIMES.includes(imageMime)) {
+      return res.status(400).json({ error: 'Unsupported image type' });
+    }
 
     // Get user's gender for personalized prompt
     const { data: userData } = await supabase.from('users').select('gender').eq('id', req.user.id).single();

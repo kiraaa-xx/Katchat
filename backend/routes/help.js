@@ -61,6 +61,27 @@ function saveSections(sections) {
   fs.writeFileSync(HELP_FILE, JSON.stringify(sections, null, 2), 'utf-8');
 }
 
+/**
+ * Sanitize owner-edited help HTML (defense in depth):
+ * - remove <script> blocks
+ * - remove event handler attributes (on*="...")
+ * - remove javascript: / vbscript: URLs
+ * - strip <iframe>/<object>/<embed> tags
+ */
+function sanitizeHelpHtml(html) {
+  if (typeof html !== 'string') return '';
+  return html
+    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe\s*>/gi, '')
+    .replace(/<object[\s\S]*?<\/object\s*>/gi, '')
+    .replace(/<embed[^>]*>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s(?:href|src)\s*=\s*"(javascript|vbscript):[^"]*"/gi, '')
+    .replace(/\s(?:href|src)\s*=\s*'(javascript|vbscript):[^']*'/gi, '')
+    .replace(/\s(?:href|src)\s*=\s*(javascript|vbscript):[^\s>]+/gi, '')
+    .slice(0, 50000);
+}
+
 router.get('/', (req, res) => {
   res.json({ sections: loadSections() });
 });
@@ -69,15 +90,19 @@ router.put('/:sectionKey', auth, ownerOnly, (req, res) => {
   try {
     const { sectionKey } = req.params;
     const { body } = req.body;
+    if (typeof body !== 'string' || !body.trim()) {
+      return res.status(400).json({ error: 'Section content is required' });
+    }
     const sections = loadSections();
     const idx = sections.findIndex(s => s.section_key === sectionKey);
     if (idx === -1) return res.status(404).json({ error: 'Section not found' });
-    sections[idx].body = body;
+    sections[idx].body = sanitizeHelpHtml(body);
     sections[idx].updated_at = new Date().toISOString();
     saveSections(sections);
     res.json({ section: sections[idx] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('help PUT error:', err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

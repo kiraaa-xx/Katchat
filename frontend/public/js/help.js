@@ -12,7 +12,8 @@ async function openHelp() {
       container.innerHTML = sections.map(function(s) {
         return '<div class="help-section">' +
           '<button class="help-section-head" onclick="toggleHelpSection(this)" aria-expanded="false">' +
-            '<i class="fa ' + s.icon + '"></i> ' + esc(s.title) +
+            '<span class="help-sec-icon"><i class="fa ' + s.icon + '"></i></span>' +
+            '<span class="help-sec-title">' + esc(s.title) + '</span>' +
             '<i class="fa fa-chevron-down help-arrow"></i>' +
           '</button>' +
           '<div class="help-section-body hidden">' +
@@ -31,7 +32,6 @@ function toggleHelpSection(btn) {
   if (!body || !body.classList.contains('help-section-body')) return;
   const isOpen = !body.classList.contains('hidden');
   body.classList.toggle('hidden');
-  btn.classList.toggle('collapsed');
   btn.setAttribute('aria-expanded', !isOpen);
 }
 

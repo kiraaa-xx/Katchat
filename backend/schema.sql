@@ -59,6 +59,10 @@ CREATE TABLE IF NOT EXISTS friends (
   UNIQUE(user_id, friend_id)
 );
 
+-- Prevent duplicate reverse-pairs (A->B and B->A at the same time)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_pair
+  ON friends (LEAST(user_id, friend_id), GREATEST(user_id, friend_id));
+
 -- ── MESSAGES ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -141,6 +145,17 @@ CREATE INDEX IF NOT EXISTS idx_image_uploads_user_date ON image_uploads(user_id,
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS temp_ban_until TIMESTAMPTZ DEFAULT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color TEXT DEFAULT 'cyan';
+
+-- ── Security: email verification + TOTP 2FA ───────────────────
+-- email_verified defaults to true so pre-existing accounts are not locked out.
+-- New signups are set to false when an email OTP is actually sent.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_expires TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_attempts INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_recovery_codes JSONB DEFAULT '[]';
 
 -- Case-insensitive unique index on email
 DROP INDEX IF EXISTS idx_users_email_lower;

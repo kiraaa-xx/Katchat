@@ -25,7 +25,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use((req, res, next) => {
-  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' ws:; media-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' ws:; media-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
   next();
 });
 app.use(requestLogger);
@@ -33,6 +33,13 @@ app.use(checkRateLimit);
 app.set('io', io); // For socket access from route handlers
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+// Uploaded files are already validated by content signature; nosniff prevents
+// browsers from interpreting spoofed files (e.g. SVG polyglots) as scripts.
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', 'inline');
+  next();
+});
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // ── Health check endpoint ─────────────────────────────────────
@@ -43,7 +50,13 @@ app.get('/health', (req, res) => {
 // ── Error logs endpoint (admin only) ──────────────────────────
 app.get('/api/logs', (req, res) => {
   const token = req.get('Authorization')?.split(' ')[1];
-  if (!token || token !== process.env.ADMIN_LOG_TOKEN) {
+  if (!token || !process.env.ADMIN_LOG_TOKEN) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  const crypto = require('crypto');
+  const a = crypto.createHash('sha256').update(token).digest();
+  const b = crypto.createHash('sha256').update(process.env.ADMIN_LOG_TOKEN).digest();
+  if (!crypto.timingSafeEqual(a, b)) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
   res.json(errorLogger.getErrors());
@@ -61,7 +74,9 @@ app.use('/api/owner-messages', require('./routes/owner-messages'));
 
 // ── Serve frontend ────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend/public')));
-app.get('*', (req, res) => {
+app.get('*', (req, res, next) => {
+  // Never mask missing API or upload paths with the SPA shell
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
   res.sendFile(path.join(__dirname, '../frontend/public/index.html'));
 });
 

@@ -127,7 +127,6 @@
 .profile-card{animation:profileIn .35s cubic-bezier(.34,1.56,.64,1) forwards}
 .fast-mode .settings-hero-bg{animation:none}
 .fast-mode .settings-hero-bg::after{animation:none}
-.fast-mode .sh-status-dot.online{animation:none}
 @keyframes profileIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
 
 /* ===== MESSAGE SEND ===== */

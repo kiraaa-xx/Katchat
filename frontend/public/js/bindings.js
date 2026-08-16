@@ -15,6 +15,8 @@ if (window.__katchat_bindings_loaded__) {
     // Auth
     'handleLogin', 'handleSignup', 'checkAuth', 'doLogout', 'showChangePasswordView',
     'submitChangePassword', 'showLogin', 'showSignup', 'toggleEye',
+    'showTotpLogin', 'submitTotpLogin', 'backToLoginFromTotp',
+    'showEmailVerifyCard', 'submitEmailVerify', 'resendVerificationCode', 'backToLoginFromVerify',
     
     // Navigation
     'navTo', 'goBack', 'showView', 'switchTab', 'adminTab',
@@ -47,6 +49,9 @@ if (window.__katchat_bindings_loaded__) {
     // Settings
     'openSettings', 'saveProfile', 'changePassword', 'toggleTheme',
     'handleAvatarUpload', 'applyAvatarCrop', 'setAvCropZoom', 'toggleSettingsSection', 'confirmLogout',
+    'toggleTotpPanel', 'enableTotp', 'disableTotp', 'confirmDisableTotp',
+    'regenerateRecoveryCodes', 'confirmRegenerateRecovery',
+    'toggleEmailVerifyPanel', 'submitEmailVerifyCode', 'resendVerificationFromSettings',
     
     // Admin
     'openAdmin', 'openBanDialog', 'changeUserRole', 'adminBan', 'adminUnban',
@@ -178,10 +183,12 @@ if (window.__katchat_bindings_loaded__) {
   window.validateDomIds = function() {
     const REQUIRED_IDS = [
       // Auth
-      'auth-page', 'login-card', 'signup-card', 'v-change-password',
+      'auth-page', 'login-card', 'signup-card', 'v-change-password', 'totp-card', 'verify-card',
       'l-email', 'l-pass', 'login-btn', 's-name', 's-username', 's-email',
       's-pass', 'signup-btn', 'new-password-input', 'confirm-password-input',
       'change-pass-btn', 'login-err', 'signup-err', 'change-pass-err',
+      'totp-code', 'totp-btn', 'totp-user', 'totp-err',
+      'verify-code', 'verify-btn', 'verify-resend', 'verify-email', 'verify-err',
       
       // Main App
       'app', 'app-body', 'topbar', 'sidebar', 'main-content', 'bottom-nav',
@@ -211,9 +218,12 @@ if (window.__katchat_bindings_loaded__) {
       // Settings
       'settings-av', 'set-name', 'set-gender', 'set-curr-pw',
       'set-new-pw', 'av-upload', 'theme-toggle', 'admin-card',
+      'totp-status-text', 'totp-manage-btn', 'totp-manage-label', 'totp-panel',
+      'email-verify-status', 'email-verify-btn', 'email-verify-label', 'email-verify-panel',
       
       // Modals
       'overlay', 'm-friend', 'm-profile', 'm-ann', 'm-ann-detail', 'm-role', 'm-confirm',
+      'm-recovery', 'recovery-codes-list',
       'friend-search-inp', 'ann-title', 'ann-content', 'ann-img-input',
       'role-name', 'role-color', 'role-icon',
       
@@ -223,7 +233,7 @@ if (window.__katchat_bindings_loaded__) {
       
       // UI
       'toast-wrap', 'swipe-hint', 'topbar-beam', 'topbar-zav',
-      'chat-list', 'friends-list', 'search-results', 'pending-list',
+      'chat-list', 'friends-list', 'search-results',
     ];
 
     const missing = [];

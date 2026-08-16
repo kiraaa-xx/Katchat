@@ -1,7 +1,7 @@
 const API = '/api';
 
-async function req(method, path, body = null, isForm = false) {
-  const token = localStorage.getItem('kc_token');
+async function req(method, path, body = null, isForm = false, useToken = null) {
+  const token = useToken || localStorage.getItem('kc_token');
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (!isForm && body) headers['Content-Type'] = 'application/json';
@@ -11,7 +11,17 @@ async function req(method, path, body = null, isForm = false) {
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) { const text = await res.text(); throw new Error(`Server error (${res.status}): ${text.substring(0, 100)}`); }
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) {
+    // Backend sends a flat string error (legacy object shape tolerated)
+    const message = typeof data.error === 'string' ? data.error : (data.error && data.error.message) || 'Request failed';
+    const err = new Error(message);
+    err.code = data.code;
+    err.status = res.status;
+    if (res.status === 403 && (data.code === 'PASSWORD_RESET_REQUIRED' || message === 'PASSWORD_RESET_REQUIRED')) {
+      if (typeof showChangePasswordView === 'function') showChangePasswordView();
+    }
+    throw err;
+  }
   return data;
 }
 
@@ -65,6 +75,13 @@ const api = {
   login: (d) => req('POST', '/auth/login', d),
   register: (d) => req('POST', '/auth/register', d),
   me: () => req('GET', '/auth/me'),
+  verifyTotpLogin: (tempToken, code) => req('POST', '/auth/totp/verify-login', { tempToken, code }),
+  verifyEmail: (code, token) => req('POST', '/auth/verify-email', { code }, false, token),
+  resendVerification: (token) => req('POST', '/auth/resend-verification', {}, false, token),
+  totpSetup: () => req('POST', '/auth/totp/setup', {}),
+  totpEnable: (code) => req('POST', '/auth/totp/enable', { code }),
+  totpDisable: (code) => req('POST', '/auth/totp/disable', { code }),
+  totpRegenerateRecovery: (code) => req('POST', '/auth/totp/regenerate-recovery', { code }),
   changePassword: (d) => req('PUT', '/auth/change-password', d),
   resetUserPassword: (userId) => req('POST', '/auth/admin/reset-password', { userId }),
   markIntroSeen: () => req('PUT', '/auth/mark-intro-seen'),
@@ -77,6 +94,7 @@ const api = {
   updateProfile: (d) => req('PUT', '/users/profile', d),
   uploadAvatar: (fd) => req('POST', '/users/avatar', fd, true),
   getAllUsers: () => req('GET', '/users/all'),
+  getDirectory: () => req('GET', '/users/directory'),
   updateRole: (id, role) => req('PUT', `/users/role/${id}`, { role }),
   banUser: (id, reason) => req('PUT', `/users/ban/${id}`, { reason }),
   unbanUser: (id) => req('PUT', `/users/unban/${id}`),

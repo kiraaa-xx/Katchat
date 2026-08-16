@@ -145,11 +145,12 @@ async function checkNewAnnouncements() {
   try {
     const { announcements } = await api.getAnnouncements();
     if (!announcements || !announcements.length) return;
-    const latestId = Math.max(...announcements.map(a => a.id));
-    const lastSeen = parseInt(localStorage.getItem('kc_last_announcement_id') || '0', 10);
-    if (latestId > lastSeen) {
-      // Find new announcements (those with id > lastSeen)
-      const newOnes = announcements.filter(a => a.id > lastSeen);
+    // Track by created_at timestamp (ids are UUIDs — Math.max would be NaN)
+    const latestTs = Math.max(...announcements.map(a => new Date(a.created_at).getTime()));
+    if (!isFinite(latestTs)) return;
+    const lastSeen = parseFloat(localStorage.getItem('kc_last_announcement_ts') || '0', 10) || 0;
+    if (latestTs > lastSeen) {
+      const newOnes = announcements.filter(a => new Date(a.created_at).getTime() > lastSeen);
       newOnes.forEach(ann => {
         if (window.notificationSystem && notificationSystem.isEnabled('announce')) {
           notificationSystem.notifyAnnouncement(ann.title, ann.content, function() {
@@ -158,7 +159,7 @@ async function checkNewAnnouncements() {
         }
         showToast(`📢 New announcement: ${ann.title}`, 'info');
       });
-      localStorage.setItem('kc_last_announcement_id', String(latestId));
+      localStorage.setItem('kc_last_announcement_ts', String(latestTs));
     }
   } catch {}
 }

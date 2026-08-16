@@ -26,7 +26,19 @@ async function handleLogin() {
     btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
     btn.disabled = true;
 
-    const { token, user } = await api.login({ email, password: pass });
+    const data = await api.login({ email, password: pass });
+
+    // Two-factor step: server returns a temp token to complete login
+    if (data.twoFactorRequired) {
+      state.totpTempToken = data.tempToken;
+      state.pendingUser = data.user;
+      showTotpLogin();
+      btn.innerHTML = '<span>Sign In</span><i class="fa fa-arrow-right"></i>';
+      btn.disabled = false;
+      return;
+    }
+
+    const { token, user } = data;
     localStorage.setItem('kc_token', token);
     state.token = token;
     state.user = user;
@@ -39,6 +51,12 @@ async function handleLogin() {
     }
   } catch (err) {
     logError('handleLogin', err, false);
+    if (err.code === 'EMAIL_NOT_VERIFIED') {
+      showEmailVerifyCard(email, pass, err.tempToken);
+      btn.innerHTML = '<span>Sign In</span><i class="fa fa-arrow-right"></i>';
+      btn.disabled = false;
+      return;
+    }
     showValidationErrors([err.message], 'login-err');
     const btn = document.getElementById('login-btn');
     btn.innerHTML = '<span>Sign In</span><i class="fa fa-arrow-right"></i>';
@@ -78,6 +96,14 @@ async function handleSignup() {
     localStorage.setItem('kc_token', token);
     state.token = token;
     state.user = user;
+
+    // If the email service is configured, require verification before entering
+    if (user.email_verified === false) {
+      showEmailVerifyCard(email, password);
+      btn.innerHTML = '<span>Create Account</span><i class="fa fa-arrow-right"></i>';
+      btn.disabled = false;
+      return;
+    }
     await enterApp();
   } catch (err) {
     logError('handleSignup', err, false);
@@ -88,11 +114,151 @@ async function handleSignup() {
   }
 }
 
+// ── TOTP login step ────────────────────────────────────────────
+function showTotpLogin() {
+  document.getElementById('login-card').classList.add('hidden');
+  document.getElementById('signup-card').classList.add('hidden');
+  const card = document.getElementById('totp-card');
+  if (card) {
+    card.classList.remove('hidden');
+    const nameEl = document.getElementById('totp-user');
+    if (nameEl && state.pendingUser) nameEl.textContent = state.pendingUser.display_name || state.pendingUser.username || '';
+    const inp = document.getElementById('totp-code');
+    if (inp) { inp.value = ''; inp.focus(); }
+    clearValidationErrors('totp-err');
+  }
+}
+
+async function submitTotpLogin() {
+  const code = document.getElementById('totp-code').value.trim();
+  const btn = document.getElementById('totp-btn');
+  try {
+    clearValidationErrors('totp-err');
+    if (!/^\d{6}$/.test(code)) {
+      showValidationErrors(['Enter the 6-digit code from your authenticator app'], 'totp-err');
+      return;
+    }
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Verifying...';
+    btn.disabled = true;
+    const { token, user } = await api.verifyTotpLogin(state.totpTempToken, code);
+    localStorage.setItem('kc_token', token);
+    state.token = token;
+    state.user = user;
+    document.getElementById('totp-card').classList.add('hidden');
+    if (user.must_change_password) {
+      showChangePasswordView();
+    } else {
+      await enterApp();
+    }
+  } catch (err) {
+    logError('submitTotpLogin', err, false);
+    showValidationErrors([err.message], 'totp-err');
+  } finally {
+    btn.innerHTML = '<span>Verify</span><i class="fa fa-shield-halved"></i>';
+    btn.disabled = false;
+  }
+}
+
+function backToLoginFromTotp() {
+  document.getElementById('totp-card').classList.add('hidden');
+  document.getElementById('login-card').classList.remove('hidden');
+  state.totpTempToken = null;
+  state.pendingUser = null;
+}
+
+// ── Email verification step ────────────────────────────────────
+let _verifyEmailAddr = null;
+let _verifyEmailPass = null;
+let _verifyTempToken = null;
+
+function showEmailVerifyCard(email, password, tempToken) {
+  document.getElementById('login-card').classList.add('hidden');
+  document.getElementById('signup-card').classList.add('hidden');
+  const card = document.getElementById('verify-card');
+  if (!card) return;
+  _verifyEmailAddr = email;
+  _verifyEmailPass = password || null;
+  _verifyTempToken = tempToken || null;
+  card.classList.remove('hidden');
+  const emailEl = document.getElementById('verify-email');
+  if (emailEl) emailEl.textContent = email;
+  clearValidationErrors('verify-err');
+  resendVerificationCode();
+}
+
+async function submitEmailVerify() {
+  const code = document.getElementById('verify-code').value.trim();
+  const btn = document.getElementById('verify-btn');
+  try {
+    clearValidationErrors('verify-err');
+    if (!/^\d{6}$/.test(code)) {
+      showValidationErrors(['Enter the 6-digit code from your email'], 'verify-err');
+      return;
+    }
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Verifying...';
+    btn.disabled = true;
+    const { user } = await api.verifyEmail(code, _verifyTempToken);
+    state.user = { ...state.user, ...user };
+    document.getElementById('verify-card').classList.add('hidden');
+    if (_verifyEmailPass) {
+      // User came from a blocked login — finish login now
+      try {
+        const data = await api.login({ email: _verifyEmailAddr, password: _verifyEmailPass });
+        if (data.twoFactorRequired) {
+          state.totpTempToken = data.tempToken;
+          state.pendingUser = data.user;
+          showTotpLogin();
+          return;
+        }
+        localStorage.setItem('kc_token', data.token);
+        state.token = data.token;
+        state.user = data.user;
+        await enterApp();
+        return;
+      } catch (loginErr) {
+        showValidationErrors([loginErr.message], 'verify-err');
+      }
+    } else {
+      await enterApp();
+    }
+  } catch (err) {
+    logError('submitEmailVerify', err, false);
+    showValidationErrors([err.message], 'verify-err');
+  } finally {
+    btn.innerHTML = '<span>Verify</span><i class="fa fa-shield-halved"></i>';
+    btn.disabled = false;
+  }
+}
+
+async function resendVerificationCode() {
+  const btn = document.getElementById('verify-resend');
+  try {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...'; }
+    await api.resendVerification(_verifyTempToken);
+    showToast('Verification code sent to your email', 'success');
+    if (btn) { btn.disabled = true; btn.textContent = 'Resend code (60s)'; }
+    setTimeout(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-rotate-right"></i> Resend code'; } }, 60000);
+  } catch (err) {
+    logError('resendVerificationCode', err, false);
+    showToast(err.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-rotate-right"></i> Resend code'; }
+  }
+}
+
+function backToLoginFromVerify() {
+  document.getElementById('verify-card').classList.add('hidden');
+  document.getElementById('login-card').classList.remove('hidden');
+  _verifyEmailAddr = null;
+  _verifyEmailPass = null;
+}
+
 async function checkAuth() {
   const token = localStorage.getItem('kc_token');
   if (!token) return false;
   try {
-    const decoded = JSON.parse(atob(token.split('.')[1]));
+    // base64url-safe decode (JWT payloads use - and _ instead of + and /)
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(payload))));
     if (decoded.exp * 1000 < Date.now()) {
       localStorage.removeItem('kc_token');
       return false;

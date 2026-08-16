@@ -27,9 +27,10 @@ async function openGlobal() {
     ? 'Message everyone... (@mention, /command)'
     : 'Message everyone... (@mention)';
 
-  // Load users for @mention and command suggestions
+  // Load users for @mention and command suggestions (directory endpoint is
+  // available to every authenticated user, unlike /users/all which is admin-only)
   try {
-    const { users } = await api.getAllUsers();
+    const { users } = await api.getDirectory();
     allGlobalUsers = users || [];
     const onlineCount = allGlobalUsers.filter(u => u.is_online).length;
     const statusEl = document.getElementById('global-status');
@@ -266,7 +267,7 @@ function showCommandDropdown(val) {
     if (userMatches.length) {
       html += `<div class="mention-sep"><i class="fa fa-user" style="margin-right:4px"></i>Users${rawTarget ? ` matching "${rawTarget}"` : ''}</div>`;
       html += userMatches.map(u => `
-        <div class="mention-item" onclick="insertCommandUser('${cmdPart}','${u.username}')">
+        <div class="mention-item" onclick="insertCommandUser(${onclickStr(cmdPart)},${onclickStr(u.username)})">
           ${makeAvEl(u, 'xs').outerHTML}
           <div class="mention-info">
             <span class="mention-name">${esc(u.display_name)}</span>

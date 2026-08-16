@@ -1,0 +1,413 @@
+{
+  "meta": {
+    "project": "KatChat",
+    "root": "C:/Users/Asus/Downloads/katchat",
+    "date": "2026-08-13",
+    "pipeline": "recon -> hunter(parallel x2) -> skeptic -> referee -> fix -> verify",
+    "status": "all-confirmed-findings-fixed-and-verified"
+  },
+  "findings": [
+    {
+      "id": "BUG-1",
+      "aliases": ["KC-01", "B-1"],
+      "severity": "critical",
+      "type": "authorization-bypass",
+      "location": "backend/routes/auth.js:50-58",
+      "claim": "Signup auto-assigns role 'owner' to anyone registering with hardcoded owner emails (chandkris27@gmail.com / katchat369@gmail.com). No email verification exists, so anyone can become owner. The same block also interpolates raw email/username into supabase .or() filters and does no server-side email format validation (filter-injection / partial-match dup check).",
+      "verdict": "confirmed",
+      "fix": "Always assign 'member' at signup; validate email format server-side; use structured equality queries for duplicate checks; keep owner emails only as fallback display strings (never for role assignment)."
+    },
+    {
+      "id": "BUG-2",
+      "aliases": ["KC-05", "B-2"],
+      "severity": "critical",
+      "type": "stored-xss / upload-spoofing",
+      "location": "backend/utils.js:10-17 (imageFileFilter), routes/users.js:21, routes/messages.js:17, routes/announcements.js:17",
+      "claim": "Upload validation trusts client-controlled file.mimetype and derives the stored extension from file.originalname (attacker-controlled). An SVG/HTML payload with fake image mimetype is stored with a .svg extension and served from /uploads with inline CSP context and target=_blank links -> stored XSS against all users.",
+      "verdict": "confirmed",
+      "fix": "Validate magic bytes (JPEG/PNG/GIF/WebP signatures) inside fileFilter; derive extension from validated mimetype only; randomize filename with crypto; set X-Content-Type-Options: nosniff on /uploads."
+    },
+    {
+      "id": "BUG-3",
+      "aliases": ["KC-02", "B-4"],
+      "severity": "critical",
+      "type": "broken-access-control",
+      "location": "backend/socket/index.js:112-119",
+      "claim": "socket events admin_ban_user / admin_unban_user have NO role check; any authenticated user can ban/unban anyone (data returned by a vulnerable admin endpoint supplies socketId).",
+      "verdict": "confirmed",
+      "fix": "Authorize via role permission canBanUsers; validate target user exists; sanitize reason."
+    },
+    {
+      "id": "BUG-4",
+      "aliases": ["KC-03"],
+      "severity": "high",
+      "type": "input-validation",
+      "location": "backend/socket/index.js:110 (notify_friend_request)",
+      "claim": "notify_friend_request trusts client-supplied from payload and emits raw display_name/username to recipient -> spoofed notifications + stored-XSS vector via toast innerHTML.",
+      "verdict": "confirmed",
+      "fix": "Server looks up sender from socket userId; emit sanitized minimal fields."
+    },
+    {
+      "id": "BUG-5",
+      "aliases": ["KC-04"],
+      "severity": "high",
+      "type": "stored-xss",
+      "location": "backend/routes/roles.js:22-23,30-38; frontend ui.js getRoleBadge",
+      "claim": "Role name/color/icon accepted unvalidated and rendered into HTML (badge styles + onclick attributes) -> stored XSS via custom role creation (owner-only endpoint, but defense in depth + compromised owner).",
+      "verdict": "confirmed",
+      "fix": "Validate name ^[a-z0-9_-]{1,50}$, color #rrggbb hex, icon fa-* allowlist server-side; escape fields when rendering badges."
+    },
+    {
+      "id": "BUG-6",
+      "aliases": ["KC-06", "B-6"],
+      "severity": "high",
+      "type": "broken-access-control",
+      "location": "backend/routes/messages.js:37-41 + backend/socket/index.js:42-56",
+      "claim": "POST /api/messages/private/:userId and send_private_message do not require an accepted friendship -> anyone can DM anyone (abuse/spam vector).",
+      "verdict": "confirmed",
+      "fix": "Require accepted friendship (both directions) + canChat permission on REST and socket paths."
+    },
+    {
+      "id": "BUG-7",
+      "aliases": ["KC-07"],
+      "severity": "high",
+      "type": "broken-access-control",
+      "location": "backend/socket/index.js:58-83,147-161",
+      "claim": "send_global_message ignores canGlobalChat permission; /ban /unban /tban commands only check role==='admin' (custom roles with canBanUsers cannot use them, and role string can be spoofed via DB anyway).",
+      "verdict": "confirmed",
+      "fix": "Enforce permissions loaded from roles table for global chat send and ban commands."
+    },
+    {
+      "id": "BUG-8",
+      "aliases": ["KC-08", "B-22"],
+      "severity": "high",
+      "type": "error-handling",
+      "location": "backend/error-handler.js:87,100-109,296-303; frontend api.js:14",
+      "claim": "Error middleware returns { success:false, error: {...} } with an object payload -> frontend new Error(data.error) shows '[object Object]' and swallows real messages.",
+      "verdict": "confirmed",
+      "fix": "Return flat string error { error, code, statusCode }; frontend extracts String(data.error?.message ?? data.error)."
+    },
+    {
+      "id": "BUG-9",
+      "aliases": ["KC-09", "B-22"],
+      "severity": "high",
+      "type": "misrouting",
+      "location": "backend/server.js (SPA catch-all)",
+      "claim": "Catch-all serves index.html (200 HTML) for missing /api/* and /uploads/* paths -> API 404s become HTML, breaking clients and hiding errors.",
+      "verdict": "confirmed",
+      "fix": "Exclude /api/ and /uploads/ from the SPA catch-all."
+    },
+    {
+      "id": "BUG-10",
+      "aliases": ["KC-10"],
+      "severity": "medium",
+      "type": "logic",
+      "location": "frontend app.js checkNewAnnouncements, announcements.js:12-13",
+      "claim": "Math.max(...ids) on UUID announcement ids -> NaN; announcement notifications never trigger.",
+      "verdict": "confirmed",
+      "fix": "Track last announcement created_at timestamp instead of max UUID."
+    },
+    {
+      "id": "BUG-11",
+      "aliases": ["KC-11"],
+      "severity": "high",
+      "type": "broken-access-control / feature-broken",
+      "location": "backend/routes/users.js /api/users/all (adminOnly); frontend global.js:32",
+      "claim": "Global chat mention list calls admin-only /api/users/all -> members get 403, mention dropdown broken for non-admins.",
+      "verdict": "confirmed",
+      "fix": "Add GET /api/users/directory (any authenticated user; id/username/display_name/role/online) and use it for mentions."
+    },
+    {
+      "id": "BUG-12",
+      "aliases": ["KC-12"],
+      "severity": "medium",
+      "type": "contract-mismatch",
+      "location": "frontend settings.js applyAccentColor (sends key like 'cyan'); backend users.js:108 (requires hex)",
+      "claim": "Accent color update fails with 400; UI silently ignores.",
+      "verdict": "confirmed",
+      "fix": "Frontend converts ACCENT_THEMES h/s/l to hex before saving; theme resolution handles both key and hex."
+    },
+    {
+      "id": "BUG-13",
+      "aliases": ["B-3"],
+      "severity": "high",
+      "type": "logic / ban-bypass",
+      "location": "backend/socket/index.js:27-31,64-68",
+      "claim": "Auto-unban triggers whenever temp_ban_until is in the past, even if an admin later applied a PERMANENT ban (permanent ban leaves stale temp_ban_until) -> banned users auto-unbanned.",
+      "verdict": "confirmed",
+      "fix": "Permanent ban clears temp_ban_until; auto-unban only when temp_ban_until is set and in the past."
+    },
+    {
+      "id": "BUG-14",
+      "aliases": ["B-7"],
+      "severity": "high",
+      "type": "broken-access-control",
+      "location": "backend/routes/users.js:250 (ban route), socket commands",
+      "claim": "Ban guard checks only req.user.role === 'admin' -> custom role with canAccessAdminPanel bypasses ban protections; also allows banning admins/owner.",
+      "verdict": "confirmed",
+      "fix": "Permission-based check (canBanUsers) server-side; non-owner cannot ban/unban admin or owner; owner cannot be banned."
+    },
+    {
+      "id": "BUG-15",
+      "aliases": ["B-9"],
+      "severity": "medium",
+      "type": "no-rate-limit",
+      "location": "backend/socket/index.js (all events)",
+      "claim": "Socket events have no rate limiting -> spam/flood vector.",
+      "verdict": "confirmed",
+      "fix": "Per-socket sliding-window throttle for messages; typing throttle 1/2s."
+    },
+    {
+      "id": "BUG-16",
+      "aliases": ["B-10"],
+      "severity": "medium",
+      "type": "resource-exhaustion",
+      "location": "backend/routes/ai.js /api/ai/chat",
+      "claim": "imageBase64 and messages arrays have no size caps; persisted into sage_history JSONB -> memory/DB abuse.",
+      "verdict": "confirmed",
+      "fix": "Cap messages (<=20, <=5000 chars), imageBase64 (<=8M chars), imageMime allowlist; per-user throttle."
+    },
+    {
+      "id": "BUG-17",
+      "aliases": ["B-11"],
+      "severity": "medium",
+      "type": "information-disclosure",
+      "location": "backend/routes/* (30+ catch blocks)",
+      "claim": "Raw err.message returned in 500 responses -> leaks SQL/stack internals.",
+      "verdict": "confirmed",
+      "fix": "Return generic 'Server error' and log detail server-side."
+    },
+    {
+      "id": "BUG-18",
+      "aliases": ["B-15"],
+      "severity": "high",
+      "type": "broken-access-control",
+      "location": "backend/routes/auth.js:96-116 (change-password), middleware/auth.js",
+      "claim": "must_change_password enforced only client-side; server change-password accepts currentPassword bypass via fromReset flag; admin-reset users can use all APIs freely.",
+      "verdict": "confirmed",
+      "fix": "Enforce must_change_password in REST auth middleware (allowlist /api/auth/*); change-password fromReset only honored when must_change_password is actually set."
+    },
+    {
+      "id": "BUG-19",
+      "aliases": ["KC-15"],
+      "severity": "medium",
+      "type": "xss",
+      "location": "backend/socket/index.js:145 (command error messages)",
+      "claim": "Raw @target interpolated into 'User @x not found' error -> XSS via socket event payload.",
+      "verdict": "confirmed",
+      "fix": "Sanitize target chars; frontend escapes toast input."
+    },
+    {
+      "id": "BUG-20",
+      "aliases": ["KC-24", "B-8", "B-21"],
+      "severity": "medium",
+      "type": "resource-leak",
+      "location": "backend/routes/users.js:15-27, messages.js:11-23, announcements.js:11-23 (daily-limit 429 paths)",
+      "claim": "Multer writes files BEFORE daily-limit check; on 429 the uploaded files are orphaned on disk.",
+      "verdict": "confirmed",
+      "fix": "Unlink uploaded files when rejecting with 429."
+    },
+    {
+      "id": "BUG-21",
+      "aliases": ["KC-13"],
+      "severity": "medium",
+      "type": "frontend",
+      "location": "frontend fixes.js:19 vs error-handler.js:19",
+      "claim": "logError defined twice; error-handler.js default showUser=true toasts EVERY error incl. unhandled rejections -> toast spam.",
+      "verdict": "confirmed",
+      "fix": "Single definition; default showUser=false; explicit toasts where wanted."
+    },
+    {
+      "id": "BUG-22",
+      "aliases": ["KC-14"],
+      "severity": "low",
+      "type": "frontend-leak",
+      "location": "frontend ui.js:317-322, announcements.js:330-336 (image viewers), avatar crop",
+      "claim": "window mousemove/mouseup/keydown listeners never removed on close -> listener leaks (multiple duplicate viewers on re-open).",
+      "verdict": "confirmed",
+      "fix": "Capture handler refs and remove on close; remove keydown handler always (not only Escape)."
+    },
+    {
+      "id": "BUG-23",
+      "aliases": ["KC-16"],
+      "severity": "medium",
+      "type": "frontend",
+      "location": "frontend chat.js:177-183 sendPrivate",
+      "claim": "When socket is null (reconnecting), message silently dropped.",
+      "verdict": "confirmed",
+      "fix": "Fall back to REST POST /messages/private/:id; toast on failure."
+    },
+    {
+      "id": "BUG-24",
+      "aliases": ["KC-17"],
+      "severity": "medium",
+      "type": "input-validation",
+      "location": "backend/socket/index.js:39 join_conversation",
+      "claim": "joins arbitrary conversation rooms with no participant check -> can watch any private conversation room.",
+      "verdict": "confirmed",
+      "fix": "Only join if uid is one of the conversationId parts."
+    },
+    {
+      "id": "BUG-25",
+      "aliases": ["KC-18"],
+      "severity": "medium",
+      "type": "logic / injection",
+      "location": "backend/socket/index.js:144 handleCommand target lookup",
+      "claim": "substring ilike (%q%) matches wrong users and wildcard chars aren't stripped.",
+      "verdict": "confirmed",
+      "fix": "Exact username match with whitelisted chars [A-Za-z0-9_ .-]."
+    },
+    {
+      "id": "BUG-26",
+      "aliases": ["KC-19"],
+      "severity": "medium",
+      "type": "broken-access-control",
+      "location": "backend/routes/announcements.js comments (banned check only)",
+      "claim": "Comments check only is_banned, ignoring canCommentAnnouncements permission.",
+      "verdict": "confirmed",
+      "fix": "Require canCommentAnnouncements permission (default member)."
+    },
+    {
+      "id": "BUG-27",
+      "aliases": ["KC-20"],
+      "severity": "low",
+      "type": "frontend",
+      "location": "frontend owner-messages.js:104",
+      "claim": "Frontend checks for 'once per day' but backend says 'You can only send one message per day' -> daily limit never surfaced.",
+      "verdict": "confirmed",
+      "fix": "Align check with backend string."
+    },
+    {
+      "id": "BUG-28",
+      "aliases": ["KC-21"],
+      "severity": "low",
+      "type": "frontend",
+      "location": "frontend auth.js:95",
+      "claim": "atob on base64url JWT payload breaks on unicode + is not URL-safe.",
+      "verdict": "confirmed",
+      "fix": "base64url-safe decode helper."
+    },
+    {
+      "id": "BUG-29",
+      "aliases": ["KC-22", "B-5"],
+      "severity": "medium",
+      "type": "input-validation",
+      "location": "backend/socket/index.js:97-109 typing_start/typing_stop/message_read",
+      "claim": "message_read can mark arbitrary conversations read (no participant check); typing events unthrottled/unvalidated.",
+      "verdict": "confirmed",
+      "fix": "Participant check on message_read; typing throttle 1/2s."
+    },
+    {
+      "id": "BUG-30",
+      "aliases": ["KC-23"],
+      "severity": "medium",
+      "type": "xss",
+      "location": "frontend global.js:269 showCommandDropdown",
+      "claim": "Raw cmdPart interpolated into onclick attribute -> command injection/XSS.",
+      "verdict": "confirmed",
+      "fix": "Escape with onclick-safe helper (onclickStr) or build with DOM + addEventListener."
+    },
+    {
+      "id": "BUG-31",
+      "aliases": ["B-12"],
+      "severity": "low",
+      "type": "guessable-filenames",
+      "location": "backend utils filename callbacks",
+      "claim": "Filenames use Date.now + Math.random + attacker extension -> enumeration + extension spoofing.",
+      "verdict": "confirmed",
+      "fix": "crypto.randomBytes hex + extension from validated mimetype."
+    },
+    {
+      "id": "BUG-32",
+      "aliases": ["B-16"],
+      "severity": "medium",
+      "type": "logic",
+      "location": "backend/routes/messages.js:77-80",
+      "claim": "GET /api/messages/global ignores page param -> pagination broken.",
+      "verdict": "confirmed",
+      "fix": "Apply range based on page."
+    },
+    {
+      "id": "BUG-33",
+      "aliases": ["B-17"],
+      "severity": "medium",
+      "type": "logic",
+      "location": "backend/routes/messages.js:613-618",
+      "claim": "delete-message with negative/non-integer messageIndex silently no-ops.",
+      "verdict": "confirmed",
+      "fix": "Validate integer bounds -> 400."
+    },
+    {
+      "id": "BUG-34",
+      "aliases": ["B-13"],
+      "severity": "high",
+      "type": "injection",
+      "location": "backend/routes/auth.js:53-58",
+      "claim": "Raw email/username interpolated into supabase .or() filters (dup check) -> PostgREST filter injection.",
+      "verdict": "confirmed",
+      "fix": "Structured equality queries (see BUG-1 fix)."
+    },
+    {
+      "id": "BUG-35",
+      "aliases": ["B-14"],
+      "severity": "low",
+      "type": "timing",
+      "location": "backend/server.js /api/logs secret check",
+      "claim": "String equality secret comparison -> timing side channel.",
+      "verdict": "confirmed",
+      "fix": "crypto.timingSafeEqual on hashed inputs."
+    },
+    {
+      "id": "BUG-36",
+      "aliases": ["B-19"],
+      "severity": "low",
+      "type": "weak-randomness",
+      "location": "backend/routes/auth.js generateTempPassword",
+      "claim": "Math.random temp passwords -> predictable.",
+      "verdict": "confirmed",
+      "fix": "crypto.randomInt."
+    },
+    {
+      "id": "BUG-37",
+      "aliases": ["B-20"],
+      "severity": "medium",
+      "type": "stored-xss",
+      "location": "backend/routes/help.js PUT (owner-only)",
+      "claim": "Help section bodies stored unsanitized -> stored XSS if owner account compromised (defense in depth).",
+      "verdict": "confirmed",
+      "fix": "Strip script tags, on* attributes, javascript: URLs server-side before storing."
+    },
+    {
+      "id": "BUG-38",
+      "aliases": ["B-18"],
+      "severity": "low",
+      "type": "race-condition",
+      "location": "backend/routes/users.js:65-73 (friend-request), schema friends table",
+      "claim": "UNIQUE(user_id, friend_id) doesn't prevent reverse-duplicate rows (A->B and B->A); concurrent requests create inconsistent duplicates; friend-request endpoint allows messaging non-friends via messageID leak.",
+      "verdict": "confirmed",
+      "fix": "Add pair-unique index (LEAST/GREATEST); catch insert conflicts gracefully."
+    },
+    {
+      "id": "BUG-39",
+      "aliases": ["KC-05 UI half"],
+      "severity": "medium",
+      "type": "xss",
+      "location": "frontend ui.js showToast innerHTML sink + socket-client.js:40 toast reason",
+      "claim": "showToast interpolates raw msg into innerHTML; socket reasons/display names passed raw.",
+      "verdict": "confirmed",
+      "fix": "Escape msg in showToast (esc) — central sink fix."
+    }
+  ],
+  "fixSummary": {
+    "allFindingsFixed": true,
+    "verifiedBy": "node --check (all backend+frontend files), live boot smoke test (health 200, auth 401, validation 400, catch-all 404), regression greps (.or() interpolations all UUID/whitelist-bound, no err.message 500 leaks, no silent catch()s)",
+    "backend": {
+      "rewritten": ["backend/utils.js", "backend/middleware/auth.js", "backend/routes/auth.js", "backend/socket/index.js", "backend/routes/users.js", "backend/routes/messages.js", "backend/routes/announcements.js", "backend/routes/roles.js"],
+      "patched": ["backend/routes/ai.js", "backend/routes/owner-messages.js", "backend/routes/help.js", "backend/error-handler.js", "backend/server.js", "backend/schema.sql (unique pair index)"]
+    },
+    "frontend": {
+      "patched": ["api.js", "app.js", "settings.js", "ui.js", "announcements.js", "error-handler.js", "fixes.js", "global.js", "chat.js", "auth.js", "owner-messages.js", "admin.js"]
+    },
+    "notCommitted": "Changes left uncommitted at user's discretion (git dirty tree, no commits made)."
+  }
+}

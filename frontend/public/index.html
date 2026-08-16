@@ -118,8 +118,8 @@
       <h1 class="auth-title" id="login-h">Welcome back</h1>
       <p class="auth-sub">Sign in to continue chatting</p>
       <div id="login-err" class="auth-err hidden" role="alert" aria-live="assertive"></div>
-      <div class="login-warning" style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:#92400e;line-height:1.5">
-        <i class="fa fa-circle-info" style="margin-right:6px"></i> <strong>Forgot your password?</strong> Contact the owner/admin at <strong>katchat369@gmail.com</strong>
+      <div class="login-warning" style="border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;line-height:1.5;background:var(--accent-d);border:1px solid var(--accent-g);color:var(--txt)">
+        <i class="fa fa-circle-info" style="margin-right:6px;color:var(--accent)"></i> <strong>Forgot your password?</strong> Contact the owner/admin at <strong>katchat369@gmail.com</strong>
       </div>
       <div class="form-group">
         <label for="l-email">Email address</label>
@@ -178,6 +178,31 @@
       </div>
       <button class="btn-primary full" id="change-pass-btn" onclick="submitChangePassword()" type="button"><span>Set New Password</span><i class="fa fa-arrow-right" aria-hidden="true"></i></button>
       <p style="font-size:11px;color:var(--txt3);text-align:center;margin-top:12px">Your session will be blocked until you set a new password.</p>
+    </section>
+    <!-- TOTP (2FA) VERIFY STEP -->
+    <section id="totp-card" class="auth-card hidden" aria-labelledby="totp-h">
+      <h1 class="auth-title" id="totp-h"><i class="fa fa-shield-halved" style="color:var(--accent)"></i> Two-Factor Authentication</h1>
+      <p class="auth-sub">Enter the 6-digit code from your authenticator app to continue as <strong id="totp-user">you</strong></p>
+      <div id="totp-err" class="auth-err hidden" role="alert" aria-live="assertive"></div>
+      <div class="form-group">
+        <label for="totp-code">Authenticator code</label>
+        <div class="field-wrap"><i class="fa fa-shield-halved" aria-hidden="true"></i><input type="text" id="totp-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" oninput="this.value=this.value.replace(/[^0-9]/g,'')" required></div>
+      </div>
+      <button class="btn-primary full" id="totp-btn" onclick="submitTotpLogin()" type="button"><span>Verify</span><i class="fa fa-shield-halved" aria-hidden="true"></i></button>
+      <p class="auth-switch"><a onclick="backToLoginFromTotp()" role="button" tabindex="0">Back to sign in</a></p>
+    </section>
+    <!-- EMAIL VERIFICATION STEP -->
+    <section id="verify-card" class="auth-card hidden" aria-labelledby="verify-h">
+      <h1 class="auth-title" id="verify-h"><i class="fa fa-envelope-circle-check" style="color:var(--accent)"></i> Verify Your Email</h1>
+      <p class="auth-sub">We sent a 6-digit code to <strong id="verify-email">your email</strong>. Enter it below to continue.</p>
+      <div id="verify-err" class="auth-err hidden" role="alert" aria-live="assertive"></div>
+      <div class="form-group">
+        <label for="verify-code">Verification code</label>
+        <div class="field-wrap"><i class="fa fa-hashtag" aria-hidden="true"></i><input type="text" id="verify-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" oninput="this.value=this.value.replace(/[^0-9]/g,'')" required></div>
+      </div>
+      <button class="btn-primary full" id="verify-btn" onclick="submitEmailVerify()" type="button"><span>Verify</span><i class="fa fa-shield-halved" aria-hidden="true"></i></button>
+      <p class="auth-switch"><a id="verify-resend" onclick="resendVerificationCode()" role="button" tabindex="0"><i class="fa fa-rotate-right"></i> Resend code</a></p>
+      <p class="auth-switch"><a onclick="backToLoginFromVerify()" role="button" tabindex="0">Back to sign in</a></p>
     </section>
   </div>
 </div>
@@ -395,25 +420,21 @@
                   <div class="av-edit-overlay" onclick="document.getElementById('av-upload').click()"><i class="fa fa-camera"></i></div>
                   <input type="file" id="av-upload" accept="image/*" onchange="handleAvatarUpload(this)" hidden>
                 </div>
-                <span class="sh-status"><span class="sh-status-dot" id="sh-status-dot"></span><span id="sh-status-text">Online</span></span>
                 <span class="sh-name" id="sh-name"></span>
                 <span class="sh-username" id="sh-username"></span>
                 <span id="sh-role-badge"></span>
                 <span class="sh-pronouns" id="sh-pronouns"></span>
               </div>
               <div class="sh-right">
-                <div class="sh-bio" id="sh-bio"></div>
                 <div class="sh-meta">
                   <span class="sh-joined" id="sh-joined-date"></span>
-                  <span class="sh-email" id="sh-email"></span>
                 </div>
                 <div class="sh-stats" id="sh-stats">
                   <div class="sh-stat-item"><span class="sh-stat-num" id="sh-stat-friends">0</span><span class="sh-stat-label">Friends</span></div>
                   <div class="sh-stat-divider"></div>
-                  <div class="sh-stat-item"><span class="sh-stat-num" id="sh-stat-ann">0</span><span class="sh-stat-label">Posts</span></div>
-                  <div class="sh-stat-divider"></div>
-                  <div class="sh-stat-item"><span class="sh-stat-num" id="sh-stat-age">—</span><span class="sh-stat-label">Account Age</span></div>
+                  <div class="sh-stat-item"><span class="sh-stat-num" id="sh-stat-age">🐱</span><span class="sh-stat-label">Days with KatChat</span></div>
                 </div>
+                <div class="sh-bio" id="sh-bio"></div>
               </div>
             </div>
           </div>
@@ -451,6 +472,26 @@
                 <div class="form-group"><label>Current Password</label><div class="field-wrap"><input type="password" id="set-curr-pw" placeholder="Current password"></div></div>
                 <div class="form-group"><label>New Password</label><div class="field-wrap"><input type="password" id="set-new-pw" placeholder="New password (min 8 chars)"></div></div>
                 <button class="btn-secondary" onclick="changePassword()"><i class="fa fa-key"></i> Change Password</button>
+                <div style="border-top:1px solid var(--border);margin:18px 0 12px;padding-top:14px">
+                  <div class="theme-row">
+                    <div>
+                      <span>Two-Factor Authentication</span>
+                      <p style="font-size:11px;color:var(--txt3);margin-top:2px" id="totp-status-text">Loading…</p>
+                    </div>
+                    <button class="btn-secondary" id="totp-manage-btn" onclick="toggleTotpPanel()"><i class="fa fa-shield-halved"></i> <span id="totp-manage-label">Setup</span></button>
+                  </div>
+                  <div id="totp-panel" class="hidden" style="margin-top:12px"></div>
+                </div>
+                <div style="border-top:1px solid var(--border);margin:18px 0 12px;padding-top:14px">
+                  <div class="theme-row">
+                    <div>
+                      <span>Email Verification</span>
+                      <p style="font-size:11px;color:var(--txt3);margin-top:2px" id="email-verify-status">Loading…</p>
+                    </div>
+                    <button class="btn-secondary" id="email-verify-btn" onclick="toggleEmailVerifyPanel()"><i class="fa fa-envelope-circle-check"></i> <span id="email-verify-label">Verify</span></button>
+                  </div>
+                  <div id="email-verify-panel" class="hidden" style="margin-top:12px"></div>
+                </div>
               </div>
             </div>
             <!-- APPEARANCE (collapsible) -->
@@ -754,6 +795,16 @@
         <button class="btn-secondary" onclick="closeModal()">Cancel</button>
         <button class="btn-danger" id="confirm-ok">Confirm</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Recovery Codes -->
+  <div id="m-recovery" class="modal hidden" style="max-width:480px">
+    <div class="modal-head"><h2><i class="fa fa-key"></i> Recovery Codes</h2><button class="modal-x" onclick="closeModal()"><i class="fa fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--txt2);line-height:1.6;margin-bottom:12px">Save these codes somewhere safe. Each can be used <strong>once</strong> to sign in if you lose your authenticator app.</p>
+      <div id="recovery-codes-list" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px"></div>
+      <button class="btn-primary full" onclick="closeModal()"><i class="fa fa-check"></i> I saved my codes</button>
     </div>
   </div>
 

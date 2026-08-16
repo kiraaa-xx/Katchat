@@ -5,12 +5,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const supabase = require('../supabase');
-const { auth, adminOnly, ownerOnly } = require('../middleware/auth');
+const { auth, adminOnly, ownerOnly, getUserPermissions } = require('../middleware/auth');
 const { validateMaxLength } = require('../error-handler');
-const { imageFileFilter } = require('../utils');
+const { imageFileFilter, makeUploadFilename, validateUploadedImage, removeUploadedFile, sendError, sanitizeText } = require('../utils');
 
 const pronounMap = { male:'he/him', female:'she/her', 'non-binary':'they/them', 'prefer-not-to-say':'they/them' };
 const colorMap = { male:'#4A90D9', female:'#D94A8C', 'non-binary':'#9B4AD9', 'prefer-not-to-say':'#4AD9A0' };
+const isUuid = (s) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -18,7 +19,7 @@ const storage = multer.diskStorage({
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (req, file, cb) => cb(null, `avatar_${req.user.id}_${Date.now()}${path.extname(file.originalname)}`)
+  filename: (req, file, cb) => cb(null, makeUploadFilename(file.mimetype))
 });
 const upload = multer({
   storage,
@@ -37,7 +38,17 @@ router.get('/search', auth, async (req, res) => {
       .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
       .neq('id', req.user.id).limit(20);
     res.json({ users: data || [] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
+});
+
+// ── User directory (any authenticated user) — for global chat mentions ──
+router.get('/directory', auth, async (req, res) => {
+  try {
+    const { data } = await supabase.from('users')
+      .select('id,display_name,username,profile_picture,profile_color,role,is_online')
+      .limit(500);
+    res.json({ users: data || [] });
+  } catch (err) { sendError(res, err); }
 });
 
 router.get('/friends', auth, async (req, res) => {
@@ -55,12 +66,13 @@ router.get('/friends', auth, async (req, res) => {
     };
     const [friends, sent, received] = await Promise.all([fetchUsers(friendIds), fetchUsers(sentRows.map(r => r.friend_id)), fetchUsers(receivedRows.map(r => r.user_id))]);
     res.json({ friends, requestsSent: sent, requestsReceived: received });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.post('/friend-request/:userId', auth, async (req, res) => {
   try {
     const uid = req.user.id; const targetId = req.params.userId;
+    if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid user ID' });
     if (uid === targetId) return res.status(400).json({ error: 'Cannot add yourself' });
     const { data: existing } = await supabase.from('friends').select('*').or(`and(user_id.eq.${uid},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${uid})`).maybeSingle();
     if (existing) {
@@ -70,25 +82,39 @@ router.post('/friend-request/:userId', auth, async (req, res) => {
         return res.status(400).json({ error: 'Request already sent' });
       }
     }
-    await supabase.from('friends').insert({ user_id: uid, friend_id: targetId, status: 'pending' });
+    const { error: insertErr } = await supabase.from('friends').insert({ user_id: uid, friend_id: targetId, status: 'pending' });
+    if (insertErr) {
+      // Concurrent reverse request -> unique pair conflict; resolve gracefully
+      if (insertErr.code === '23505') {
+        const { data: raced } = await supabase.from('friends').select('*').or(`and(user_id.eq.${uid},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${uid})`).maybeSingle();
+        if (raced?.user_id === targetId && raced?.status === 'pending') {
+          await supabase.from('friends').update({ status: 'accepted' }).eq('id', raced.id);
+          return res.json({ success: true, action: 'friends' });
+        }
+        return res.status(400).json({ error: 'Request already sent' });
+      }
+      throw insertErr;
+    }
     res.json({ success: true, action: 'sent' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.delete('/friend-request/:userId', auth, async (req, res) => {
   try {
     const uid = req.user.id; const targetId = req.params.userId;
+    if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid user ID' });
     await supabase.from('friends').delete().or(`and(user_id.eq.${uid},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${uid})`);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.delete('/friend/:userId', auth, async (req, res) => {
   try {
     const uid = req.user.id; const targetId = req.params.userId;
+    if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid user ID' });
     await supabase.from('friends').delete().or(`and(user_id.eq.${uid},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${uid})`);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.put('/profile', auth, async (req, res) => {
@@ -124,27 +150,38 @@ router.put('/profile', auth, async (req, res) => {
       else throw updateErr;
     }
     res.json({ user: safe(user) });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.put('/password', auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8)
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     const { data: user } = await supabase.from('users').select('password').eq('id', req.user.id).single();
     if (!await bcrypt.compare(currentPassword, user.password)) return res.status(400).json({ error: 'Current password is incorrect' });
     const hashed = await bcrypt.hash(newPassword, 12);
     await supabase.from('users').update({ password: hashed }).eq('id', req.user.id);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    // Verify actual file content matches an allowed image signature
+    const sigErr = validateUploadedImage(req.file.path);
+    if (sigErr) {
+      removeUploadedFile(req.file.path);
+      return res.status(400).json({ error: sigErr.message });
+    }
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
     await supabase.from('users').update({ profile_picture: avatarUrl }).eq('id', req.user.id);
     res.json({ profilePicture: avatarUrl });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    if (req.file) removeUploadedFile(req.file.path);
+    sendError(res, err);
+  }
 });
 
 // ── User suggestions (people you may know) ────────────────────
@@ -217,7 +254,7 @@ router.get('/suggestions', auth, async (req, res) => {
 
     res.json({ suggestions });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -228,7 +265,7 @@ router.get('/all', auth, adminOnly, async (req, res) => {
       .select('id,display_name,username,profile_picture,profile_color,role,is_online,last_seen,is_banned_from_global,ban_reason,created_at,gender,pronouns')
       .order('created_at', { ascending: false });
     res.json({ users: data || [] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // ── Update role (owner only) ──────────────────────────────────
@@ -239,30 +276,40 @@ router.put('/role/:userId', auth, ownerOnly, async (req, res) => {
     if (!roleExists) return res.status(400).json({ error: 'Invalid role' });
     const { data: user } = await supabase.from('users').update({ role }).eq('id', req.params.userId).select('id,display_name,username,role').single();
     res.json({ user });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
+
+const canBan = (perms, roleName) => perms?.permissions?.canBanUsers || ['admin', 'owner'].includes(roleName);
 
 router.put('/ban/:userId', auth, adminOnly, async (req, res) => {
   try {
     const { reason } = req.body;
+    if (!isUuid(req.params.userId)) return res.status(400).json({ error: 'Invalid user ID' });
+    const perms = await getUserPermissions(req.user.id);
+    if (!canBan(perms, req.user.role)) return res.status(403).json({ error: 'You do not have permission to ban users' });
     const { data: target } = await supabase.from('users').select('role').eq('id', req.params.userId).single();
     if (!target) return res.status(404).json({ error: 'User not found' });
-    if (req.user.role === 'admin' && ['admin','owner'].includes(target.role)) return res.status(403).json({ error: 'Cannot ban admin or owner' });
-    await supabase.from('users').update({ is_banned_from_global: true, banned_by: req.user.id, ban_reason: reason || null }).eq('id', req.params.userId);
+    if (['admin','owner'].includes(target.role) && req.user.role !== 'owner') return res.status(403).json({ error: 'Cannot ban admin or owner' });
+    // Permanent ban must clear any temp ban so auto-unban never fires for it
+    await supabase.from('users').update({ is_banned_from_global: true, banned_by: req.user.id, ban_reason: sanitizeText(reason, 500) || null, temp_ban_until: null }).eq('id', req.params.userId);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.put('/unban/:userId', auth, adminOnly, async (req, res) => {
   try {
+    if (!isUuid(req.params.userId)) return res.status(400).json({ error: 'Invalid user ID' });
+    const perms = await getUserPermissions(req.user.id);
+    if (!canBan(perms, req.user.role)) return res.status(403).json({ error: 'You do not have permission to ban users' });
     await supabase.from('users').update({ is_banned_from_global: false, banned_by: null, ban_reason: null, temp_ban_until: null }).eq('id', req.params.userId);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.get('/mutual/:userId', auth, async (req, res) => {
   try {
     const uid = req.user.id; const targetId = req.params.userId;
+    if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid user ID' });
     const getFriendIds = async (userId) => {
       const { data } = await supabase.from('friends').select('user_id,friend_id').or(`user_id.eq.${userId},friend_id.eq.${userId}`).eq('status', 'accepted');
       return (data || []).map(r => r.user_id === userId ? r.friend_id : r.user_id);
@@ -272,16 +319,16 @@ router.get('/mutual/:userId', auth, async (req, res) => {
     if (!mutualIds.length) return res.json({ mutual: [] });
     const { data: mutual } = await supabase.from('users').select('id,display_name,username,profile_picture,profile_color').in('id', mutualIds);
     res.json({ mutual: mutual || [] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 router.put('/sage-history', auth, async (req, res) => {
   try {
     const { history } = req.body;
-    const limited = (history || []).slice(-10);
+    const limited = (Array.isArray(history) ? history : []).slice(-10);
     await supabase.from('users').update({ sage_history: limited }).eq('id', req.user.id);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // ── Check image upload limit for today ────────────────────────
@@ -293,7 +340,7 @@ router.get('/image-upload-limit', auth, async (req, res) => {
     const count = data?.count || 0;
     const limit = 5;
     res.json({ count, limit, remaining: Math.max(0, limit - count) });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // ── Increment image upload count ──────────────────────────────
@@ -310,7 +357,7 @@ router.post('/image-upload-increment', auth, async (req, res) => {
       await supabase.from('image_uploads').insert({ user_id: req.user.id, upload_date: today, count: 1 });
     }
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 // ── Get all banned users (admin) ──────────────────────────────
@@ -321,7 +368,7 @@ router.get('/banned', auth, adminOnly, async (req, res) => {
       .eq('is_banned_from_global', true)
       .order('created_at', { ascending: false });
     res.json({ users: data || [] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendError(res, err); }
 });
 
 module.exports = router;

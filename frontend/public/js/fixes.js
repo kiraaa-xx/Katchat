@@ -239,7 +239,7 @@ if (window.__katchat_fixes_loaded__) {
           html += userMatches.map(u => {
             const av = makeAvEl(u, 'xs');
             return `
-            <div class="mention-item" onclick="insertCommandUser('${cmdPart}','${u.username}')">
+            <div class="mention-item" onclick="insertCommandUser(${onclickStr(cmdPart)},${onclickStr(u.username)})">
               ${av?.outerHTML || ''}
               <div class="mention-info">
                 <span class="mention-name">${esc(u.display_name)}</span>

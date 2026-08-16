@@ -16,7 +16,7 @@ if (window.__katchat_error_handling_loaded__) {
   /**
    * Central error logger - all errors go here for debugging
    */
-  window.logError = function(context, error, showUser = true) {
+  window.logError = function(context, error, showUser = false) {
     const err = error instanceof Error ? error : new Error(String(error));
     const entry = {
       timestamp: new Date().toISOString(),

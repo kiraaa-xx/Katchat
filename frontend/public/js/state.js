@@ -7,6 +7,8 @@ const state = {
   friendRequestsSent: [],
   unreadCounts: {},
   roles: [],
+  totpTempToken: null,
+  pendingUser: null,
 };
 
 // Per-session variables

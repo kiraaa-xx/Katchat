@@ -351,6 +351,17 @@ if (window.__katchat_validation_loaded__) {
   // ===== FORM VALIDATION HELPERS =====
 
   /**
+   * Validate 6-digit one-time code (email OTP or authenticator TOTP)
+   */
+  window.validateOtpCode = function(code) {
+    const re = /^\d{6}$/;
+    if (!code || !re.test(code)) {
+      return { valid: false, error: 'Enter the 6-digit code' };
+    }
+    return { valid: true };
+  };
+
+  /**
    * Validate login form
    */
   window.validateLoginForm = function(email, password) {

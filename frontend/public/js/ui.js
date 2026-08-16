@@ -7,7 +7,8 @@ function showToast(msg, type = 'info') {
   t.setAttribute('role', 'status');
   const icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' };
   const colors = { success: 'var(--accent)', error: 'var(--danger)', info: 'var(--cyan)' };
-  t.innerHTML = `<i class="fa ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}" aria-hidden="true"></i><span>${msg}</span>`;
+  // msg may contain user-generated data (socket relays etc.) — always escape
+  t.innerHTML = `<i class="fa ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}" aria-hidden="true"></i><span>${esc(msg)}</span>`;
   c.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(16px)'; t.style.transition = '.3s'; setTimeout(() => t.remove(), 300); }, 3200);
 }
@@ -53,9 +54,10 @@ function getRoleBadge(role, roles = state.roles) {
   const found = roles.find(r => r.name === role);
   if (!found) return '';
   const iconCls = found.icon || 'fa-solid fa-user';
+  const color = esc(found.color);
   const cls = role === 'owner' ? 'rb-owner' : role === 'admin' ? 'rb-admin' : 'rb-member';
-  return `<span class="role-badge ${cls}" style="color:${found.color};border-color:${found.color}40;background:${found.color}15">
-    <i class="${iconCls}" style="color:${found.color}"></i> ${found.name}
+  return `<span class="role-badge ${cls}" style="color:${color};border-color:${color}40;background:${color}15">
+    <i class="${esc(iconCls)}" style="color:${color}"></i> ${esc(found.name)}
   </span>`;
 }
 
@@ -268,6 +270,9 @@ function openImgViewer(images, index) {
   function removeViewer() {
     isPanning = false;
     zoomTouchStart = null;
+    window.removeEventListener('mousemove', panMoveHandler);
+    window.removeEventListener('mouseup', panUpHandler);
+    document.removeEventListener('keydown', keyHandler);
     overlay.remove();
   }
 
@@ -277,7 +282,7 @@ function openImgViewer(images, index) {
 
   // Keyboard nav
   const keyHandler = function(e) {
-    if (e.key === 'Escape') { removeViewer(); document.removeEventListener('keydown', keyHandler); }
+    if (e.key === 'Escape') { removeViewer(); }
     if (total > 1) {
       if (e.key === 'ArrowLeft') { e.preventDefault(); currentIdx = showImage(currentIdx - 1); }
       if (e.key === 'ArrowRight') { e.preventDefault(); currentIdx = showImage(currentIdx + 1); }
@@ -314,19 +319,22 @@ function openImgViewer(images, index) {
     imgEl.classList.add('iv-dragging');
   });
 
-  window.addEventListener('mousemove', function(e) {
+  const panMoveHandler = function(e) {
     if (!isPanning) return;
     imgPanX = panOrigX + (e.clientX - panStartX);
     imgPanY = panOrigY + (e.clientY - panStartY);
     applyTransform();
-  });
+  };
 
-  window.addEventListener('mouseup', function() {
+  const panUpHandler = function() {
     if (isPanning) {
       isPanning = false;
       imgEl.classList.remove('iv-dragging');
     }
-  });
+  };
+
+  window.addEventListener('mousemove', panMoveHandler);
+  window.addEventListener('mouseup', panUpHandler);
 
   // ── Double-click to reset zoom ──
   imgEl.addEventListener('dblclick', function(e) {

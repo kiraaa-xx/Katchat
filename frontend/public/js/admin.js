@@ -212,21 +212,23 @@ function makeRoleRow(role) {
   const iconCls = role.icon || 'fa-solid fa-user';
   const perms = Object.entries(role.permissions || {}).filter(([,v]) => v).map(([k]) => {
     const def = PERM_DEFS.find(p => p.key === k);
-    return def ? `<span style="font-size:10px;background:${role.color}18;color:${role.color};padding:2px 6px;border-radius:10px;border:1px solid ${role.color}30">${def.label}</span>` : '';
+    const c = esc(role.color);
+    return def ? `<span style="font-size:10px;background:${c}18;color:${c};padding:2px 6px;border-radius:10px;border:1px solid ${c}30">${def.label}</span>` : '';
   }).join('');
+  const rColor = esc(role.color);
   row.innerHTML = `
-    <div style="width:18px;height:18px;border-radius:50%;background:${role.color};flex-shrink:0;box-shadow:0 0 8px ${role.color}80"></div>
+    <div style="width:18px;height:18px;border-radius:50%;background:${rColor};flex-shrink:0;box-shadow:0 0 8px ${rColor}80"></div>
     <div class="ar-info">
       <div class="ar-name">
-        <i class="${iconCls}" style="color:${role.color}"></i>
-        <span style="color:${role.color};font-weight:700">${esc(role.name)}</span>
+        <i class="${esc(iconCls)}" style="color:${rColor}"></i>
+        <span style="color:${rColor};font-weight:700">${esc(role.name)}</span>
         ${role.is_system ? '<span style="font-size:10px;color:var(--txt3);padding:2px 6px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">System</span>' : ''}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${perms || '<span style="font-size:11px;color:var(--txt3)">No permissions</span>'}</div>
     </div>
     <div class="ar-actions">
-      <button class="btn-xs" onclick="openRoleModal('${role.name}')"><i class="fa fa-pen"></i> Edit</button>
-      ${!role.is_system ? `<button class="btn-xs danger" onclick="deleteRole('${role.name}')"><i class="fa fa-trash"></i></button>` : ''}
+      <button class="btn-xs" onclick="openRoleModal(${onclickStr(role.name)})"><i class="fa fa-pen"></i> Edit</button>
+      ${!role.is_system ? `<button class="btn-xs danger" onclick="deleteRole(${onclickStr(role.name)})"><i class="fa fa-trash"></i></button>` : ''}
     </div>`;
   return row;
 }

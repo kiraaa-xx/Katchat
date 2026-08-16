@@ -101,7 +101,7 @@ async function sendOwnerContact() {
     }
     setTimeout(function() { closeModal(); }, 2000);
   } catch (err) {
-    if (err.message.includes('once per day') || err.message.includes('429')) {
+    if (err.message.includes('one message per day') || err.message.includes('429')) {
       if (statusEl) {
         statusEl.className = '';
         statusEl.innerHTML = '<div style="color:var(--danger);padding:10px"><i class="fa fa-clock"></i> You can only send one message per day. Please try again tomorrow.</div>';

@@ -57,6 +57,18 @@ router.post('/', auth, async (req, res) => {
       return res.status(500).json({ error: 'Failed to send message. Please ensure the owner_messages table exists in Supabase.' });
     }
 
+    // TOCTOU guard: if a concurrent request already inserted a message today,
+    // remove the newer one so the daily limit is strictly enforced.
+    const { count: postCount } = await supabase
+      .from('owner_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('sender_id', req.user.id)
+      .gte('created_at', today);
+    if (postCount > 1) {
+      await supabase.from('owner_messages').delete().eq('id', data.id);
+      return res.status(429).json({ error: 'You can only send one message per day' });
+    }
+
     res.json({ message: 'Message sent successfully', data });
   } catch (err) {
     console.error('POST /api/owner-messages error:', err.message);
