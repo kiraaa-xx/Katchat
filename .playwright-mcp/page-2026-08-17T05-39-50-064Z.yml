@@ -1,0 +1,128 @@
+- generic [ref=f1e1]:
+  - link "Skip to main content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - text: "      @                  #  "
+  - application "KatChat Application" [ref=f1e16]:
+    - banner [ref=f1e17]:
+      - generic [ref=f1e18]:
+        - img "KatChat logo" [ref=f1e19]
+        - generic [ref=f1e20]:
+          - generic [ref=f1e21]: KatChat
+          - generic [ref=f1e22]: Your space, Your conversations
+      - generic [ref=f1e23]:
+        - button "" [ref=f1e24] [cursor=pointer]
+        - button "" [ref=f1e26] [cursor=pointer]
+        - button "Sage Sage" [active] [ref=f1e28] [cursor=pointer]:
+          - img "Sage" [ref=f1e29]
+          - generic [ref=f1e30]: Sage
+        - generic [ref=f1e31] [cursor=pointer]
+    - generic [ref=f1e32]:
+      - complementary "Conversations and friends" [ref=f1e33]:
+        - generic [ref=f1e34]:
+          - generic [ref=f1e35]: 
+          - textbox "Search chats..." [ref=f1e36]
+          - text: 
+        - tablist [ref=f1e37]:
+          - tab "Chats" [selected] [ref=f1e38] [cursor=pointer]
+          - tab "Friends" [ref=f1e39] [cursor=pointer]
+        - generic [ref=f1e40]:
+          - generic [ref=f1e41]:
+            - button " Global" [ref=f1e42] [cursor=pointer]:
+              - generic [ref=f1e43]: 
+              - generic [ref=f1e44]: Global
+            - button " Posts" [ref=f1e45] [cursor=pointer]:
+              - generic [ref=f1e46]: 
+              - generic [ref=f1e47]: Posts
+            - button " Help" [ref=f1e48] [cursor=pointer]:
+              - generic [ref=f1e49]: 
+              - generic [ref=f1e50]: Help
+          - generic [ref=f1e52]:
+            - generic [ref=f1e53]: 
+            - heading "No chats yet" [level=4] [ref=f1e54]
+            - paragraph [ref=f1e55]:
+              - text: Find friends and start chatting! Use the
+              - strong [ref=f1e56]: +
+              - text: button to add people.
+        - text: 
+      - main "Chat Area" [ref=f1e57]:
+        - text:                                    +                                    + +
+        - region "Sage AI assistant" [ref=f1e136]:
+          - generic [ref=f1e137]:
+            - generic [ref=f1e138]:
+              - generic [ref=f1e139]:
+                - generic [ref=f1e140]:
+                  - generic [ref=f1e141]: 
+                  - text: Chat History
+                - generic [ref=f1e142]:
+                  - button "+ New" [ref=f1e143] [cursor=pointer]:
+                    - generic [ref=f1e144]: +
+                    - text: New
+                  - text: 
+              - generic [ref=f1e145]:
+                - generic [ref=f1e146] [cursor=pointer]:
+                  - generic [ref=f1e147]: Dhangadhi Weather Update
+                  - generic [ref=f1e148]: What is the capital of Japan?
+                  - generic [ref=f1e149]:
+                    - button "" [ref=f1e150]
+                    - button "" [ref=f1e152]
+                - generic [ref=f1e154] [cursor=pointer]:
+                  - generic [ref=f1e155]: Kathmandu Weather Today
+                  - generic [ref=f1e156]: What's the weather in Kathmandu today?
+                  - generic [ref=f1e157]:
+                    - button "" [ref=f1e158]
+                    - button "" [ref=f1e160]
+              - button " Clear All Chats" [ref=f1e162] [cursor=pointer]:
+                - generic [ref=f1e163]: 
+                - text: Clear All Chats
+            - generic [ref=f1e164]:
+              - generic [ref=f1e165]:
+                - text:  
+                - img "Sage" [ref=f1e166]
+                - generic [ref=f1e167]:
+                  - generic [ref=f1e168]: Sage
+                  - text: AI Assistant
+                - button "+" [ref=f1e169] [cursor=pointer]
+              - generic [ref=f1e172]:
+                - heading "Hey, I'm Sage 👋" [level=3] [ref=f1e173]
+                - paragraph [ref=f1e174]: Your bold, witty, and actually helpful AI companion. Ask me anything — no boring answers, I promise.
+                - generic [ref=f1e175]:
+                  - button " About Kat-Chat" [ref=f1e176] [cursor=pointer]:
+                    - generic [ref=f1e177]: 
+                    - text: About Kat-Chat
+                  - button " Change password" [ref=f1e178] [cursor=pointer]:
+                    - generic [ref=f1e179]: 
+                    - text: Change password
+                  - button " How KatChat works" [ref=f1e180] [cursor=pointer]:
+                    - generic [ref=f1e181]: 
+                    - text: How KatChat works
+                  - button " Contact owner" [ref=f1e182] [cursor=pointer]:
+                    - generic [ref=f1e183]: 
+                    - text: Contact owner
+                  - button " Analyze image" [ref=f1e184] [cursor=pointer]:
+                    - generic [ref=f1e185]: 
+                    - text: Analyze image
+                  - button " Inspire me" [ref=f1e186] [cursor=pointer]:
+                    - generic [ref=f1e187]: 
+                    - text: Inspire me
+              - text: 
+              - generic [ref=f1e188]:
+                - button "Analyze image" [ref=f1e189] [cursor=pointer]:
+                  - generic [ref=f1e190]: 
+                - textbox "Ask Sage anything" [ref=f1e192]:
+                  - /placeholder: Ask Sage anything...
+                - button "Send to Sage" [ref=f1e193] [cursor=pointer]:
+                  - generic [ref=f1e194]: 
+    - navigation "Main navigation" [ref=f1e77]:
+      - button "Home" [ref=f1e78] [cursor=pointer]:
+        - generic [ref=f1e79]: 
+      - button "Global Chat" [ref=f1e81] [cursor=pointer]:
+        - generic [ref=f1e82]: 
+        - generic [ref=f1e83]: Global
+      - button "Announcements" [ref=f1e84] [cursor=pointer]:
+        - generic [ref=f1e85]: 
+        - generic [ref=f1e86]: Posts
+      - button "Settings" [ref=f1e87] [cursor=pointer]:
+        - generic [ref=f1e88]: 
+  - text:                                             
+  - status
+  - text: 

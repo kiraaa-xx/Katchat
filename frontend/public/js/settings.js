@@ -109,6 +109,32 @@ function openSettings() {
   renderAccentColors();
   renderTotpStatus();
   renderEmailVerifyStatus();
+  renderSettingsStats();
+}
+
+function renderSettingsStats() {
+  const u = state.user;
+  if (!u) return;
+  const joinedEl = document.getElementById('sh-joined-date');
+  const friendsEl = document.getElementById('sh-stat-friends');
+  const daysEl = document.getElementById('sh-stat-age');
+  const bioEl = document.getElementById('sh-bio');
+  if (joinedEl) {
+    joinedEl.innerHTML = u.created_at
+      ? `<i class="fa fa-calendar" aria-hidden="true"></i> Joined ${new Date(u.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+      : '';
+  }
+  const friendCount = Array.isArray(state.friends) ? state.friends.length : 0;
+  if (friendsEl) friendsEl.textContent = String(friendCount);
+  if (daysEl) {
+    if (u.created_at) {
+      const days = Math.max(0, Math.floor((Date.now() - new Date(u.created_at).getTime()) / 86400000));
+      daysEl.textContent = String(days);
+    } else {
+      daysEl.textContent = '\u2013';
+    }
+  }
+  if (bioEl) bioEl.innerHTML = u.bio ? esc(u.bio) : '';
 }
 
 async function saveProfile() {
@@ -421,26 +447,64 @@ function handleAvatarUpload(input) {
   input.value = '';
 }
 
+function _avCropGeom() {
+  const vp = document.getElementById('av-crop-viewport');
+  const img = document.getElementById('av-crop-img');
+  const vpSize = vp ? vp.offsetWidth : 0;
+  const natW = img ? img.naturalWidth : 0;
+  const natH = img ? img.naturalHeight : 0;
+  // Minimum zoom that still lets the image fully cover the round crop area
+  const minZoom = (vpSize > 0 && natW > 0 && natH > 0) ? Math.max(vpSize / natW, vpSize / natH) : 1;
+  return { vpSize, natW, natH, minZoom, maxZoom: Math.max(5, minZoom) };
+}
+
+// translate(X,Y) scale(Z) applies around the element center (natW/2, natH/2), so
+// the image covers the viewport only while X stays in [centerX-halfX, centerX+halfX]
+// with centerX=(vpSize-natW)/2 and halfX=(natW*Z-vpSize)/2 (mirrored for Y).
+function _avCropClamp() {
+  const { vpSize, natW, natH } = _avCropGeom();
+  if (vpSize <= 0 || natW <= 0 || natH <= 0) return;
+  const Z = _avCropZoom;
+  const cx = (vpSize - natW) / 2, cy = (vpSize - natH) / 2;
+  const hx = Math.max(0, (natW * Z - vpSize) / 2);
+  const hy = Math.max(0, (natH * Z - vpSize) / 2);
+  _avCropX = Math.max(cx - hx, Math.min(cx + hx, _avCropX));
+  _avCropY = Math.max(cy - hy, Math.min(cy + hy, _avCropY));
+}
+
+// Zoom so the image point currently under (mx,my) — viewport-local coords —
+// stays put. For a center-origin scale: X_new = X + (mx - X - natW/2)*(Z_old-Z_new)/Z_old.
+function _avCropZoomAt(mx, my, newZoom) {
+  const { natW, natH } = _avCropGeom();
+  if (natW <= 0 || natH <= 0 || _avCropZoom <= 0) return;
+  const ratio = (_avCropZoom - newZoom) / _avCropZoom;
+  _avCropX += (mx - _avCropX - natW / 2) * ratio;
+  _avCropY += (my - _avCropY - natH / 2) * ratio;
+  _avCropZoom = newZoom;
+  _avCropClamp();
+  const slider = document.getElementById('av-crop-zoom');
+  if (slider) slider.value = newZoom;
+  applyAvCropTransform();
+}
+
 function fitAvatarCrop() {
   const vp = document.getElementById('av-crop-viewport');
   const img = document.getElementById('av-crop-img');
-  const vpSize = vp.offsetWidth;
-  if (vpSize <= 0) return;
-  const natW = img.naturalWidth;
-  const natH = img.naturalHeight;
-  const fitZoom = Math.min(vpSize / natW, vpSize / natH);
-  _avCropZoom = fitZoom;
-  // Center the unscaled image in the viewport.
-  // translate(X,Y) moves the element, then scale(Z) scales from its center.
-  // The visible center after both transforms = (X + natW/2, Y + natH/2).
-  // Set this equal to viewport center: X = (vpSize - natW) / 2
+  const { vpSize, natW, natH, minZoom, maxZoom } = _avCropGeom();
+  if (vpSize <= 0 || natW <= 0 || natH <= 0) return;
+  // Start zoomed to "cover" so the crop area is fully filled from the start
+  _avCropZoom = minZoom;
   _avCropX = (vpSize - natW) / 2;
   _avCropY = (vpSize - natH) / 2;
   const slider = document.getElementById('av-crop-zoom');
-  slider.value = fitZoom;
+  if (slider) {
+    slider.min = minZoom.toFixed(4);
+    slider.max = String(maxZoom);
+    slider.step = '0.01';
+    slider.value = _avCropZoom;
+  }
   applyAvCropTransform();
-  // Reset drag lock so init re-registers listeners (supports re-opening modal)
-  vp._avDragInit = false;
+  // Listeners are registered once in initAvCropDrag and reused across modal opens
   requestAnimationFrame(initAvCropDrag);
 }
 
@@ -464,25 +528,16 @@ function initAvCropDrag() {
     if (!_avCropDragging) return;
     _avCropX = x - _avCropStartX;
     _avCropY = y - _avCropStartY;
+    _avCropClamp();
     if (!_avCropRafId) _avCropRafId = requestAnimationFrame(batchMove);
-  };
-  const clampPos = function () {
-    const vpSize = vp.offsetWidth;
-    const img = document.getElementById('av-crop-img');
-    const natW = img.naturalWidth, natH = img.naturalHeight;
-    const Z = _avCropZoom;
-    const maxOffset = vpSize * 0.5;
-    const limitX = Math.max(maxOffset, (natW * Z - vpSize) * 0.5);
-    const limitY = Math.max(maxOffset, (natH * Z - vpSize) * 0.5);
-    _avCropX = Math.max(-limitX, Math.min(limitX, _avCropX));
-    _avCropY = Math.max(-limitY, Math.min(limitY, _avCropY));
-    applyAvCropTransform();
   };
   const onEnd = function () {
     if (_avCropRafId) { cancelAnimationFrame(_avCropRafId); _avCropRafId = null; }
     _avCropDragging = false;
+    _avCropPinch = null;
     vp.style.cursor = 'grab';
-    clampPos();
+    _avCropClamp();
+    applyAvCropTransform();
   };
   vp.addEventListener('mousedown', function (e) { onStart(e.clientX, e.clientY); });
   window.addEventListener('mousemove', function (e) { onMove(e.clientX, e.clientY); });
@@ -504,20 +559,13 @@ function initAvCropDrag() {
     if (e.touches.length === 2 && _avCropPinch) {
       const t1 = e.touches[0], t2 = e.touches[1];
       const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-      const newZoom = Math.max(0.1, Math.min(5, _avCropPinch.initialZoom * (dist / _avCropPinch.initialDist)));
+      const { minZoom, maxZoom } = _avCropGeom();
+      const newZoom = Math.max(minZoom, Math.min(maxZoom, _avCropPinch.initialZoom * (dist / _avCropPinch.initialDist)));
       if (newZoom !== _avCropZoom) {
-        const img = document.getElementById('av-crop-img');
-        const ox = img.naturalWidth / 2, oy = img.naturalHeight / 2;
         const rect = vp.getBoundingClientRect();
         const mx = (t1.clientX + t2.clientX) / 2 - rect.left;
         const my = (t1.clientY + t2.clientY) / 2 - rect.top;
-        const Z_old = _avCropZoom, Z_new = newZoom;
-        const inv = (Z_old - Z_new) / (Z_old * Z_new);
-        _avCropX += (mx - ox) * inv;
-        _avCropY += (my - oy) * inv;
-        _avCropZoom = newZoom;
-        document.getElementById('av-crop-zoom').value = newZoom;
-        applyAvCropTransform();
+        _avCropZoomAt(mx, my, newZoom);
       }
     } else if (e.touches.length === 1 && _avCropDragging) {
       onMove(e.touches[0].clientX, e.touches[0].clientY);
@@ -525,7 +573,6 @@ function initAvCropDrag() {
   }, { passive: true });
   vp.addEventListener('touchend', function (e) {
     if (e.touches.length === 0) {
-      _avCropPinch = null;
       onEnd();
     } else if (e.touches.length === 1 && _avCropPinch) {
       _avCropPinch = null;
@@ -535,24 +582,14 @@ function initAvCropDrag() {
     }
   }, { passive: true });
   vp.addEventListener('wheel', function (e) {
-    if (!e.ctrlKey) return;
     e.preventDefault();
     const delta = -e.deltaY;
     const factor = delta > 0 ? 1.05 : 0.95;
-    const newZoom = Math.max(0.1, Math.min(5, _avCropZoom * factor));
+    const { minZoom, maxZoom } = _avCropGeom();
+    const newZoom = Math.max(minZoom, Math.min(maxZoom, _avCropZoom * factor));
     if (newZoom !== _avCropZoom) {
-      const img = document.getElementById('av-crop-img');
-      const ox = img.naturalWidth / 2, oy = img.naturalHeight / 2;
       const rect = vp.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const Z_old = _avCropZoom, Z_new = newZoom;
-      const inv = (Z_old - Z_new) / (Z_old * Z_new);
-      _avCropX += (mx - ox) * inv;
-      _avCropY += (my - oy) * inv;
-      _avCropZoom = newZoom;
-      document.getElementById('av-crop-zoom').value = newZoom;
-      applyAvCropTransform();
+      _avCropZoomAt(e.clientX - rect.left, e.clientY - rect.top, newZoom);
     }
   }, { passive: false });
 }
@@ -564,8 +601,11 @@ function applyAvCropTransform() {
 }
 
 function setAvCropZoom(val) {
-  _avCropZoom = parseFloat(val);
-  applyAvCropTransform();
+  const { vpSize, minZoom, maxZoom } = _avCropGeom();
+  if (vpSize <= 0) return;
+  const newZoom = Math.max(minZoom, Math.min(maxZoom, parseFloat(val) || minZoom));
+  // Zoom about the viewport center so the image stays centered
+  _avCropZoomAt(vpSize / 2, vpSize / 2, newZoom);
 }
 
 async function applyAvatarCrop() {

@@ -1,0 +1,78 @@
+- generic [active] [ref=f5e1]:
+  - link "Skip to main content" [ref=f5e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - text: "      @                  #  "
+  - application "KatChat Application" [ref=f5e16]:
+    - banner [ref=f5e17]:
+      - generic [ref=f5e18]:
+        - img "KatChat logo" [ref=f5e19]
+        - generic [ref=f5e20]:
+          - generic [ref=f5e21]: KatChat
+          - generic [ref=f5e22]: Your space, Your conversations
+      - generic [ref=f5e23]:
+        - button "" [ref=f5e24] [cursor=pointer]
+        - button "" [ref=f5e26] [cursor=pointer]
+        - button "Sage Sage" [ref=f5e28] [cursor=pointer]:
+          - img "Sage" [ref=f5e29]
+          - generic [ref=f5e30]: Sage
+        - generic [ref=f5e31] [cursor=pointer]: Q
+    - generic [ref=f5e32]:
+      - complementary "Conversations and friends" [ref=f5e33]:
+        - generic [ref=f5e34]:
+          - generic [ref=f5e35]: 
+          - textbox "Search chats..." [ref=f5e36]
+          - text: 
+        - tablist [ref=f5e37]:
+          - tab "Chats" [selected] [ref=f5e38] [cursor=pointer]
+          - tab "Friends" [ref=f5e39] [cursor=pointer]
+        - generic [ref=f5e40]:
+          - generic [ref=f5e41]:
+            - button " Global" [ref=f5e42] [cursor=pointer]:
+              - generic [ref=f5e43]: 
+              - generic [ref=f5e44]: Global
+            - button " Posts" [ref=f5e45] [cursor=pointer]:
+              - generic [ref=f5e46]: 
+              - generic [ref=f5e47]: Posts
+            - button " Help" [ref=f5e48] [cursor=pointer]:
+              - generic [ref=f5e49]: 
+              - generic [ref=f5e50]: Help
+          - generic [ref=f5e52] [cursor=pointer]:
+            - generic [ref=f5e53]: A
+            - generic [ref=f5e54]:
+              - generic [ref=f5e55]: asmin
+              - generic [ref=f5e56]: Tap to chat
+        - text: 
+      - main "Chat Area" [ref=f5e57]:
+        - region "Welcome" [ref=f5e58]:
+          - generic [ref=f5e59]:
+            - heading "Welcome to KatChat" [level=2] [ref=f5e60]
+            - paragraph [ref=f5e62]: Select a conversation or explore the global chat.
+            - generic [ref=f5e63]:
+              - button " Global Chat" [ref=f5e64] [cursor=pointer]:
+                - generic [ref=f5e65]: 
+                - text: Global Chat
+              - button " Announcements" [ref=f5e66] [cursor=pointer]:
+                - generic [ref=f5e67]: 
+                - text: Announcements
+            - generic [ref=f5e69] [cursor=pointer]:
+              - generic [ref=f5e70]: 
+              - generic [ref=f5e71]: Asmin Raj Awasthi Passed
+              - generic [ref=f5e72]: Aug 16
+            - generic [ref=f5e74] [cursor=pointer]:
+              - generic [ref=f5e75]: 
+              - text: Help Center & FAQ
+        - text:                      +                                    + +  +     +      
+    - navigation "Main navigation" [ref=f5e76]:
+      - button "Home" [ref=f5e77] [cursor=pointer]:
+        - generic [ref=f5e78]: 
+      - button "Global Chat" [ref=f5e80] [cursor=pointer]:
+        - generic [ref=f5e81]: 
+        - generic [ref=f5e82]: Global
+      - button "Announcements" [ref=f5e83] [cursor=pointer]:
+        - generic [ref=f5e84]: 
+        - generic [ref=f5e85]: Posts
+      - button "Settings" [ref=f5e86] [cursor=pointer]:
+        - generic [ref=f5e87]: 
+  - text:                                             
+  - status
+  - text: 

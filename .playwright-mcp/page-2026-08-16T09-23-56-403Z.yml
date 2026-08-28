@@ -1,0 +1,67 @@
+- generic [active] [ref=f6e1]:
+  - link "Skip to main content" [ref=f6e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - text: "      @                  #  "
+  - application "KatChat Application" [ref=f6e3]:
+    - banner [ref=f6e4]:
+      - generic [ref=f6e5]:
+        - img "KatChat logo" [ref=f6e6]
+        - generic [ref=f6e7]:
+          - generic [ref=f6e8]: KatChat
+          - generic [ref=f6e9]: Your space, Your conversations
+      - generic [ref=f6e10]:
+        - button "" [ref=f6e11] [cursor=pointer]
+        - button "" [ref=f6e13] [cursor=pointer]
+        - button "Sage Sage" [ref=f6e15] [cursor=pointer]:
+          - img "Sage" [ref=f6e16]
+          - generic [ref=f6e17]: Sage
+        - generic [ref=f6e18] [cursor=pointer]
+    - generic [ref=f6e19]:
+      - complementary "Conversations and friends" [ref=f6e20]:
+        - generic [ref=f6e21]:
+          - generic [ref=f6e22]: 
+          - textbox "Search chats..." [ref=f6e23]
+          - text: 
+        - tablist [ref=f6e24]:
+          - tab "Chats" [selected] [ref=f6e25] [cursor=pointer]
+          - tab "Friends" [ref=f6e26] [cursor=pointer]
+        - generic [ref=f6e28]:
+          - button " Global" [ref=f6e29] [cursor=pointer]:
+            - generic [ref=f6e30]: 
+            - generic [ref=f6e31]: Global
+          - button " Posts" [ref=f6e32] [cursor=pointer]:
+            - generic [ref=f6e33]: 
+            - generic [ref=f6e34]: Posts
+          - button " Help" [ref=f6e35] [cursor=pointer]:
+            - generic [ref=f6e36]: 
+            - generic [ref=f6e37]: Help
+      - main "Chat Area" [ref=f6e38]:
+        - region "Welcome" [ref=f6e39]:
+          - generic [ref=f6e40]:
+            - heading "Welcome to KatChat" [level=2] [ref=f6e41]
+            - paragraph [ref=f6e43]: Select a conversation or explore the global chat.
+            - generic [ref=f6e44]:
+              - button " Global Chat" [ref=f6e45] [cursor=pointer]:
+                - generic [ref=f6e46]: 
+                - text: Global Chat
+              - button " Announcements" [ref=f6e47] [cursor=pointer]:
+                - generic [ref=f6e48]: 
+                - text: Announcements
+            - generic [ref=f6e50] [cursor=pointer]:
+              - generic [ref=f6e51]: 
+              - text: Help Center & FAQ
+        - text:                      +                                    + +  +     +      
+    - navigation "Main navigation" [ref=f6e52]:
+      - button "Home" [ref=f6e53] [cursor=pointer]:
+        - generic [ref=f6e54]: 
+      - button "Global Chat" [ref=f6e56] [cursor=pointer]:
+        - generic [ref=f6e57]: 
+        - generic [ref=f6e58]: Global
+      - button "Announcements" [ref=f6e59] [cursor=pointer]:
+        - generic [ref=f6e60]: 
+        - generic [ref=f6e61]: Posts
+      - button "Settings" [ref=f6e62] [cursor=pointer]:
+        - generic [ref=f6e63]: 
+  - text:                                             
+  - status
+  - text: 

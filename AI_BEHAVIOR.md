@@ -29,13 +29,28 @@ Frontend (sage.js)
 Express  →  auth middleware (JWT)
   ▼
 routes/ai.js  POST /chat
-  ├─ build system prompt from user's gender + announcements
-  ├─ Groq API call
-  ├─ trim history to 20 msgs, persist to users.sage_history
+  ├─ detect intent: weather / news / announcements → services/tools.js
+  │    └─ fetch ONLY the relevant structured data (compact context block)
+  ├─ build system prompt from user's gender + tool context
+  ├─ Groq API call (failover to fallback provider)
   └─ res.json({ content, provider, imageDataUrl })
   ▼
 Frontend renders the reply as a normal Sage bubble.
 ```
+
+### Live Tools (Weather · News · Announcements)
+
+Sage can answer live-data questions **only when the user actually asks**. The backend detects intent and injects a compact, structured context block into the system prompt — it never dumps whole datasets or raw API JSON.
+
+| Intent | Example | Provider | Caching |
+|--------|---------|----------|---------|
+| Weather | "What's the weather in Dhangadhi?" | Open-Meteo (keyless, HTTPS) | 15 min / location |
+| News | "What's the latest technology news?" | Google News RSS + Hacker News fallback (keyless) | 10 min / category |
+| Announcements | "What's the latest KatChat announcement?" | Existing `announcements` table | 5 min |
+
+All third-party calls happen **server-side** in `backend/services/tools.js`; no API keys ever reach the frontend. External failures return a short system note so Sage answers gracefully ("could not fetch news right now") instead of breaking the chat.
+
+See `backend/services/tools.js` for the implementation.
 
 ### Failure Behavior
 
@@ -114,6 +129,12 @@ When a user discusses mental health, trauma, grief, or other serious topics:
 - If conversation exceeds 20 messages, the oldest 5 are trimmed on save
 - Legacy single-thread history: `sage_history` stores last 10 messages directly
 - Multi-chat: `sage_history` stores array of `{ id, title, messages, updated_at, preview }` — max 10 chats
+- Retention bounds: 20 messages per chat, 10 chats total, chats older than 60 days are dropped (`retainSageChats()` in `backend/routes/ai.js`)
+- Base64 image data URLs are **not persisted**: `retainSageChats()` strips `data:` image fields before saving `sage_history`, keeping the JSONB column small. Images still render in the live session.
+
+### Daily Limit
+- Each user gets `SAGE_DAILY_LIMIT` free requests per day (default 5, resets at midnight server time, in-memory per user)
+- A request only counts toward the limit if Sage actually replies: failed validation, a busy throttle, or a provider outage **refund** the slot via `sageDailyRelease()`
 
 ### Image Analysis (Vision)
 - Uses `GROQ_VISION_MODEL` (default: `meta-llama/llama-4-scout-17b-16e-instruct`)
@@ -126,28 +147,28 @@ When a user discusses mental health, trauma, grief, or other serious topics:
 
 ### Where Sage Behavior Is Defined
 
-All Sage logic lives in a single file: **`backend/routes/ai.js`**
+Sage logic lives in **`backend/routes/ai.js`** (prompt + providers) with live tools in **`backend/services/tools.js`**.
 
-| What | Where | Lines (approx.) |
-|------|-------|-----------------|
-| System prompt (personality) | `buildSagePrompt()` | 7–60 |
-| Gender-adaptive tone | Inside `buildSagePrompt()` | 8–17 |
-| Groq AI provider call | `callGroq()` | 70–104 |
-| Chat endpoint | `POST /api/ai/chat` | 131–187 |
-| History retrieval | `GET /api/ai/history` | 190–203 |
-| Multi-chat management | Various `/api/ai/chats` endpoints | 206–294 |
-| Message retention logic | In chat endpoint | 162–164 |
+| What | Where | Notes |
+|------|-------|-------|
+| System prompt (personality) | `buildSagePrompt()` | Gender-adaptive + KatChat knowledge |
+| Live tool context (weather/news/announcements) | `buildToolContext()` in `backend/services/tools.js` | Injected only when the user asks |
+| Groq AI provider call | `groqProvider.chat()` | Primary provider |
+| Chat endpoint | `POST /api/ai/chat` | Intent detection + failover |
+| History retrieval | `GET /api/ai/history` | Legacy single thread |
+| Multi-chat management | Various `/api/ai/chats` endpoints | Max 10 chats, 20 msgs each |
 
 ### Files That Control Sage Behavior
 
 | File | What It Controls |
-|------|-----------------|
-| `backend/routes/ai.js` | **Everything** — prompt, providers, history, chat endpoints |
+|------|------------------|
+| `backend/routes/ai.js` | Prompt, providers, history, chat endpoints |
+| `backend/services/tools.js` | Weather/news/announcement data for Sage |
 | `backend/.env` | API keys, model names |
 | `frontend/public/js/sage.js` | Frontend UI only — chat rendering, image selection, input handling |
-| `frontend/public/css/style.css` | Sage chat styling (bubbles, layout) |
+| `frontend/public/css/style.css` | Sage styling |
 | `frontend/public/index.html` | Sage HTML structure (chat view, side panel) |
-| `frontend/public/js/api.js` | API client methods for Sage endpoints |
+| `frontend/public/js/api.js` | API client methods for Sage |
 
 ### How to Change Sage's Personality Safely
 
@@ -165,6 +186,10 @@ All Sage logic lives in a single file: **`backend/routes/ai.js`**
 | 3 | Swearing changed to "don't initiate, let user set tone" | Previously Sage would proactively offer swearing |
 | 4 | "Answer first, personality second" as core rule | Ensures helpfulness isn't sacrificed for edginess |
 | 5 | Temperature 0.8 → 0.7 | More consistent responses across providers |
+| 6 | Intent-based live tools (weather/news/announcements) | Only relevant structured data is injected when asked; no dataset dumps |
+| 7 | Keyless providers + server-side calls | Open-Meteo, Google News RSS — no keys in frontend |
+| 8 | Daily-limit slots refunded on failure | Failed/busy/invalid requests no longer burn the user's daily quota |
+| 9 | Base64 images stripped before history save | `sage_history` JSONB stays small; images render in-session only |
 
 ---
 
@@ -178,3 +203,5 @@ All Sage logic lives in a single file: **`backend/routes/ai.js`**
 | Gender detection is DB-only | Uses `users.gender` column — can't detect from chat context |
 | No moderation layer | All user messages go directly to the AI provider |
 | No context about other users | Sage only knows the current user's messages, not other users or global chat |
+| Weather without a city | Sage asks which city instead of guessing a default location |
+| Tools run on latest message only | Follow-ups like "and tomorrow?" don't re-trigger the tool fetch |

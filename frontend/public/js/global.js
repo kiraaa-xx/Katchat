@@ -34,7 +34,7 @@ async function openGlobal() {
     allGlobalUsers = users || [];
     const onlineCount = allGlobalUsers.filter(u => u.is_online).length;
     const statusEl = document.getElementById('global-status');
-    statusEl.textContent = `${onlineCount} online · ${allGlobalUsers.length} members`;
+    statusEl.innerHTML = `${onlineCount} online · <span class="online-count-badge" id="global-online-count">${onlineCount}</span>`;
     statusEl.dataset.memberCount = allGlobalUsers.length;
     if (socket) socket.emit('get_online_count');
   } catch {}

@@ -643,6 +643,8 @@
 @media (max-width: 500px) {
   .ann-card { flex-direction: column; }
   .ann-card-img-wrap { width: 100%; min-height: 160px; }
+  .ann-mob-head { gap: 10px; }
+  .ann-mob-img { width: 64px; height: 64px; border-radius: 10px; }
 }
 
 /* 5. Settings - consistent spacing */
@@ -717,9 +719,9 @@
 .admin-panel-section { overflow-x: hidden; }
 .sage-layout { max-width: 100%; }
 
-/* 13. Large desktop centering for chat views */
+/* 13. Large desktop: cap chat width but keep messages flush left */
 @media (min-width: 1400px) {
-  .msgs-wrap { max-width: 900px; margin: 0 auto; width: 100%; }
+  .msgs-wrap { max-width: 900px; margin: 0 auto 0 0; width: 100%; }
 }
 
 /* 14. Contact modal responsive */

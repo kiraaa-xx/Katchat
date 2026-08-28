@@ -3,6 +3,7 @@ const router = express.Router();
 const { auth } = require('../middleware/auth');
 const supabase = require('../supabase');
 const { errorLogger } = require('../error-handler');
+const { buildToolContext } = require('../services/tools');
 
 // Per-user sliding-window throttle for Sage calls (12 / minute)
 const sageCalls = new Map();
@@ -13,6 +14,41 @@ const sageThrottle = (userId) => {
   times.push(now);
   sageCalls.set(userId, times);
   return true;
+};
+
+// Per-user daily request limit (in-memory; resets at midnight server time).
+// Configurable via SAGE_DAILY_LIMIT in .env (default 5).
+const SAGE_DAILY_LIMIT = parseInt(process.env.SAGE_DAILY_LIMIT || '5', 10) || 5;
+const dailySage = new Map();
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+// Reserve a daily Sage slot. Returns true (consuming one) or false when the
+// daily limit is reached. Slots are refunded via sageDailyRelease() when a
+// request fails validation or the providers are unavailable, so a failed
+// attempt never burns a user's daily quota.
+const sageDailyReserve = (userId) => {
+  pruneDailySage();
+  const key = `${userId}:${todayKey()}`;
+  const count = dailySage.get(key) || 0;
+  if (count >= SAGE_DAILY_LIMIT) return false;
+  dailySage.set(key, count + 1);
+  return true;
+};
+
+// Refund a reserved slot (safe no-op if nothing was consumed).
+const sageDailyRelease = (userId) => {
+  const key = `${userId}:${todayKey()}`;
+  const count = dailySage.get(key) || 0;
+  if (count > 0) dailySage.set(key, count - 1);
+};
+
+// Drop stale date keys once the map grows large, so memory stays bounded.
+const pruneDailySage = () => {
+  if (dailySage.size < 5000) return;
+  const today = todayKey();
+  for (const key of dailySage.keys()) {
+    if (!key.endsWith(`:${today}`)) dailySage.delete(key);
+  }
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -452,24 +488,50 @@ async function runWithFailover(label, fn) {
   throw allErr;
 }
 
-// ── Fetch announcements for Sage context ─────────────────────
-async function getAnnouncementsContext() {
-  try {
-    const { data } = await supabase
-      .from('announcements')
-      .select('title, content, created_at, pinned')
-      .order('pinned', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(10);
-    if (!data || data.length === 0) return '';
-    const annText = data.map(a => {
-      const pin = a.pinned ? '[PINNED] ' : '';
-      const date = new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      return `${pin}"${a.title}" (${date}): ${a.content}`;
-    }).join('\n');
-    return `\n\nRecent announcements (users may ask about these):\n${annText}`;
-  } catch { return ''; }
+const SAGE_MAX_CHATS = parseInt(process.env.SAGE_MAX_CHATS || '10', 10) || 10;
+const SAGE_HISTORY_MAX_DAYS = parseInt(process.env.SAGE_HISTORY_MAX_DAYS || '60', 10) || 60;
+const SAGE_MAX_MESSAGES = 20;
+
+// Bound a Sage chat list: age out stale chats, cap chat count, and cap each
+// chat's message array. Returns the retained list (never throws).
+function retainSageChats(chats) {
+  if (!Array.isArray(chats) || !chats.length) return [];
+  const now = Date.now();
+  const maxAgeMs = SAGE_HISTORY_MAX_DAYS * 24 * 60 * 60 * 1000;
+
+  const clean = chats
+    .filter((c) => c && c.id && typeof c.id === 'string')
+    .map((c) => ({
+      ...c,
+      messages: Array.isArray(c.messages)
+        ? c.messages.slice(-SAGE_MAX_MESSAGES).map((m) => {
+            // Never persist raw base64 image data URLs in sage_history —
+            // each can be megabytes, and 10 chats × 20 messages would bloat
+            // the JSONB column. Images still work in the live session.
+            if (m && typeof m.image === 'string' && m.image.startsWith('data:')) {
+              const { image, ...rest } = m;
+              return rest;
+            }
+            return m;
+          })
+        : []
+    }));
+
+  // Drop chats nobody has touched in SAGE_HISTORY_MAX_DAYS
+  const fresh = clean.filter((c) => {
+    const ts = new Date(c.updated_at || c.created_at || Date.now()).getTime();
+    return isFinite(ts) && now - ts < maxAgeMs;
+  });
+
+  // Keep the most recently updated chats, up to SAGE_MAX_CHATS
+  const sorted = [...fresh].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+  return sorted.slice(0, SAGE_MAX_CHATS);
 }
+
+// ── Intent-based tool context ──────────────────────────────
+// Replaces the old always-on announcements injection: we now fetch
+// weather / news / announcements only when the user asks, and pass
+// a compact context block to Sage. See services/tools.js.
 
 // ═══════════════════════════════════════════════════════════════════
 // ROUTES
@@ -479,21 +541,30 @@ async function getAnnouncementsContext() {
 const SAGE_ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 router.post('/chat', auth, async (req, res) => {
   try {
+    if (!sageDailyReserve(req.user.id)) {
+      return res.status(429).json({
+        error: `You've used all ${SAGE_DAILY_LIMIT} free Sage requests for today. The limit resets at midnight.`
+      });
+    }
     if (!sageThrottle(req.user.id)) {
+      sageDailyRelease(req.user.id);
       return res.status(429).json({ error: 'Sage is busy right now. Please wait a moment and try again.' });
     }
-    const { messages, imageBase64, imageMime, chatId } = req.body;
-    if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: 'Messages required' });
-    if (messages.length > 20) return res.status(400).json({ error: 'Too many messages' });
+    const { messages, imageBase64, imageMime } = req.body;
+    if (!Array.isArray(messages) || !messages.length) { sageDailyRelease(req.user.id); return res.status(400).json({ error: 'Messages required' }); }
+    if (messages.length > 20) { sageDailyRelease(req.user.id); return res.status(400).json({ error: 'Too many messages' }); }
     for (const m of messages) {
       if (!m || !['user', 'assistant'].includes(m.role) || typeof m.content !== 'string' || m.content.length > 5000) {
+        sageDailyRelease(req.user.id);
         return res.status(400).json({ error: 'Invalid message format' });
       }
     }
     if (imageBase64 && (typeof imageBase64 !== 'string' || imageBase64.length > 8000000)) {
+      sageDailyRelease(req.user.id);
       return res.status(400).json({ error: 'Image is too large' });
     }
     if (imageMime && !SAGE_ALLOWED_MIMES.includes(imageMime)) {
+      sageDailyRelease(req.user.id);
       return res.status(400).json({ error: 'Unsupported image type' });
     }
 
@@ -501,9 +572,11 @@ router.post('/chat', auth, async (req, res) => {
     const { data: userData } = await supabase.from('users').select('gender').eq('id', req.user.id).single();
     const userGender = userData?.gender || 'prefer-not-to-say';
 
-    // Feed Sage with recent announcements
-    const announcementsContext = await getAnnouncementsContext();
-    const sageSystem = buildSagePrompt(userGender) + (announcementsContext || '');
+    // Build the base prompt, then attach live tool context when the user
+    // asks about weather / news / announcements.
+    const lastUserMessage = messages[messages.length - 1]?.content || '';
+    const toolContext = await buildToolContext(lastUserMessage);
+    const sageSystem = buildSagePrompt(userGender) + toolContext;
 
     // Single failover call — primary then fallback automatically.
     const result = await runWithFailover('chat', (provider) =>
@@ -511,42 +584,17 @@ router.post('/chat', auth, async (req, res) => {
     );
     const replyText = result.text;
 
-    // Build user message — store image as data URL for display in chat
-    const userMsg = { ...messages[messages.length - 1] };
-    const imageDataUrl = imageBase64 ? `data:${imageMime || 'image/jpeg'};base64,${imageBase64}` : null;
-    if (imageDataUrl) {
-      userMsg.image = imageDataUrl;
-    }
+    // History is persisted by the frontend via POST /ai/chats, so the chat
+    // endpoint stays read-only. (Previously this wrote a legacy flat array
+    // that clobbered multi-chat history — removed.)
 
-    // Build updated messages array including bot response
-    let updated = [...messages.slice(0, -1), userMsg, { role: 'assistant', content: replyText }];
-
-    // ── Enforce 20-message retention: trim oldest 5 when > 20 ──
-    if (updated.length > 20) {
-      updated = updated.slice(5); // remove oldest 5
-    }
-
-    if (chatId) {
-      // Update existing chat
-      const { data: userData2 } = await supabase.from('users').select('sage_history').eq('id', req.user.id).single();
-      const chats = userData2?.sage_history || [];
-      const chatIdx = chats.findIndex(c => c.id === chatId);
-      if (chatIdx >= 0) {
-        chats[chatIdx].messages = updated;
-        chats[chatIdx].updated_at = new Date().toISOString();
-        chats[chatIdx].preview = (userMsg?.content || '').substring(0, 50);
-        await supabase.from('users').update({ sage_history: chats }).eq('id', req.user.id);
-      }
-    } else {
-      // Legacy single history fallback
-      await supabase.from('users').update({ sage_history: updated.slice(-10) }).eq('id', req.user.id);
-    }
-
-    res.json({ content: replyText, provider: result.provider, imageDataUrl });
+    res.json({ content: replyText, provider: result.provider, imageDataUrl: imageBase64 ? `data:${imageMime || 'image/jpeg'};base64,${imageBase64}` : null });
   } catch (err) {
     // Both providers failed (or another server-side fault). Never expose
     // raw provider errors / stack traces to the client — return the clean
     // maintenance message as Sage's reply. Details stay server-side only.
+    // Refund the daily slot: a failed reply shouldn't consume the quota.
+    sageDailyRelease(req.user.id);
     console.error('Sage chat — all providers failed:', err.message);
     if (err.providerErrors) {
       err.providerErrors.forEach((e) =>
@@ -621,12 +669,8 @@ router.post('/chats', auth, async (req, res) => {
       chats.push(chat);
     }
 
-    // Keep max 10 chats — delete oldest 5 if exceeded
-    if (chats.length > 10) {
-      const sorted = [...chats].sort((a,b) => new Date(a.updated_at) - new Date(b.updated_at));
-      const toDelete = sorted.slice(0, 5).map(c => c.id);
-      chats = chats.filter(c => !toDelete.includes(c.id));
-    }
+    // Bound history: age cap, max chats (keep newest), per-chat message cap
+    chats = retainSageChats(chats);
 
     await supabase.from('users').update({ sage_history: chats }).eq('id', req.user.id);
     res.json({ success: true, chats });

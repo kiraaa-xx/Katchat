@@ -1,0 +1,158 @@
+- generic [ref=f5e1]:
+  - link "Skip to main content" [ref=f5e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - text: "      @                  #  "
+  - application "KatChat Application" [ref=f5e16]:
+    - banner [ref=f5e17]:
+      - generic [ref=f5e18]:
+        - img "KatChat logo" [ref=f5e19]
+        - generic [ref=f5e20]:
+          - generic [ref=f5e21]: KatChat
+          - generic [ref=f5e22]: Your space, Your conversations
+      - generic [ref=f5e23]:
+        - button "" [ref=f5e24] [cursor=pointer]
+        - button "" [ref=f5e26] [cursor=pointer]
+        - button "Sage Sage" [ref=f5e28] [cursor=pointer]:
+          - img "Sage" [ref=f5e29]
+          - generic [ref=f5e30]: Sage
+        - generic [ref=f5e31] [cursor=pointer]: Q
+    - generic [ref=f5e32]:
+      - complementary "Conversations and friends" [ref=f5e33]:
+        - generic [ref=f5e34]:
+          - generic [ref=f5e35]: 
+          - textbox "Search chats..." [ref=f5e36]
+          - text: 
+        - tablist [ref=f5e37]:
+          - tab "Chats" [selected] [ref=f5e38] [cursor=pointer]
+          - tab "Friends" [ref=f5e39] [cursor=pointer]
+        - generic [ref=f5e40]:
+          - generic [ref=f5e41]:
+            - button " Global" [ref=f5e42] [cursor=pointer]:
+              - generic [ref=f5e43]: 
+              - generic [ref=f5e44]: Global
+            - button " Posts" [ref=f5e45] [cursor=pointer]:
+              - generic [ref=f5e46]: 
+              - generic [ref=f5e47]: Posts
+            - button " Help" [ref=f5e48] [cursor=pointer]:
+              - generic [ref=f5e49]: 
+              - generic [ref=f5e50]: Help
+          - generic [ref=f5e52] [cursor=pointer]:
+            - generic [ref=f5e53]: A
+            - generic [ref=f5e54]:
+              - generic [ref=f5e55]: asmin
+              - generic [ref=f5e56]: Tap to chat
+        - text: 
+      - main "Chat Area" [ref=f5e57]:
+        - text:                          +   
+        - region "Settings" [ref=f5e89]:
+          - generic [ref=f5e90]:
+            - text: 
+            - generic [ref=f5e91]: Settings
+          - generic [ref=f5e92]:
+            - generic [ref=f5e94]:
+              - generic [ref=f5e95]:
+                - generic [ref=f5e96]:
+                  - generic [ref=f5e97] [cursor=pointer]: Q
+                  - generic [ref=f5e98] [cursor=pointer]: 
+                - generic [ref=f5e100]: QA Tester
+                - generic [ref=f5e101]: "@qatester2"
+                - generic [ref=f5e103]:
+                  - generic [ref=f5e104]: 
+                  - text: member
+                - generic [ref=f5e105]: he/him
+              - generic [ref=f5e106]:
+                - generic [ref=f5e108]:
+                  - generic [ref=f5e109]: 
+                  - text: Joined August 2026
+                - generic [ref=f5e110]:
+                  - generic [ref=f5e111]:
+                    - generic [ref=f5e112]: "1"
+                    - generic [ref=f5e113]: Friends
+                  - generic [ref=f5e115]:
+                    - generic [ref=f5e116]: "0"
+                    - generic [ref=f5e117]: Days with KatChat
+                - generic [ref=f5e118]: "QA bio test: loving the purrfect chat!"
+            - generic [ref=f5e119]:
+              - generic [ref=f5e120]:
+                - button " Profile " [ref=f5e121] [cursor=pointer]:
+                  - generic [ref=f5e122]: 
+                  - text: Profile
+                  - generic [ref=f5e123]: 
+                - text: 
+              - generic [ref=f5e124]:
+                - button " Security " [ref=f5e125] [cursor=pointer]:
+                  - generic [ref=f5e126]: 
+                  - text: Security
+                  - generic [ref=f5e127]: 
+                - text:   
+              - generic [ref=f5e128]:
+                - button " Appearance " [ref=f5e129] [cursor=pointer]:
+                  - generic [ref=f5e130]: 
+                  - text: Appearance
+                  - generic [ref=f5e131]: 
+                - text:  
+              - button " Notifications " [ref=f5e133] [cursor=pointer]:
+                - generic [ref=f5e134]: 
+                - text: Notifications
+                - generic [ref=f5e135]: 
+              - generic [ref=f5e136]:
+                - heading " Accent Color" [level=3] [ref=f5e137]:
+                  - generic [ref=f5e138]: 
+                  - text: Accent Color
+                - generic [ref=f5e139]:
+                  - button "Cyan" [ref=f5e140] [cursor=pointer]:
+                    - generic [ref=f5e142]: 🩵 Cyan
+                    - generic [ref=f5e143]: 
+                  - button "Emerald" [ref=f5e145] [cursor=pointer]:
+                    - generic [ref=f5e147]: 🌲 Emerald
+                    - text: 
+                  - button "Blue" [ref=f5e148] [cursor=pointer]:
+                    - generic [ref=f5e150]: 🔵 Blue
+                    - text: 
+                  - button "Purple" [ref=f5e151] [cursor=pointer]:
+                    - generic [ref=f5e153]: 🟣 Purple
+                    - text: 
+                  - button "Pink" [ref=f5e154] [cursor=pointer]:
+                    - generic [ref=f5e156]: 🌸 Pink
+                    - text: 
+                  - button "Red" [ref=f5e157] [cursor=pointer]:
+                    - generic [ref=f5e159]: ❤️ Red
+                    - text: 
+                  - button "Orange" [ref=f5e160] [cursor=pointer]:
+                    - generic [ref=f5e162]: 🟧 Orange
+                    - text: 
+              - text:  
+              - generic [ref=f5e163]:
+                - heading " Contact Owner" [level=3] [ref=f5e164]:
+                  - generic [ref=f5e165]: 
+                  - text: Contact Owner
+                - paragraph [ref=f5e166]: Need help? Reach out directly to the owner.
+                - generic [ref=f5e167]:
+                  - button " Message Owner" [ref=f5e168] [cursor=pointer]:
+                    - generic [ref=f5e169]: 
+                    - text: Message Owner
+                  - button " Email Owner" [ref=f5e170] [cursor=pointer]:
+                    - generic [ref=f5e171]: 
+                    - text: Email Owner
+              - generic [ref=f5e172]:
+                - heading " Account" [level=3] [ref=f5e173]:
+                  - generic [ref=f5e174]: 
+                  - text: Account
+                - button " Sign Out" [ref=f5e175] [cursor=pointer]:
+                  - generic [ref=f5e176]: 
+                  - text: Sign Out
+        - text:         + +  +     +      
+    - navigation "Main navigation" [ref=f5e76]:
+      - button "Home" [ref=f5e77] [cursor=pointer]:
+        - generic [ref=f5e78]: 
+      - button "Global Chat" [ref=f5e80] [cursor=pointer]:
+        - generic [ref=f5e81]: 
+        - generic [ref=f5e82]: Global
+      - button "Announcements" [ref=f5e83] [cursor=pointer]:
+        - generic [ref=f5e84]: 
+        - generic [ref=f5e85]: Posts
+      - button "Settings" [active] [ref=f5e86] [cursor=pointer]:
+        - generic [ref=f5e87]: 
+  - text:                                             
+  - status
+  - text: 

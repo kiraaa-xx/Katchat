@@ -1,0 +1,76 @@
+- generic [active] [ref=f4e1]:
+  - link "Skip to main content" [ref=f4e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - text: "      @                  #  "
+  - application "KatChat Application" [ref=f4e16]:
+    - banner [ref=f4e17]:
+      - generic [ref=f4e18]:
+        - img "KatChat logo" [ref=f4e19]
+        - generic [ref=f4e20]:
+          - generic [ref=f4e21]: KatChat
+          - generic [ref=f4e22]: Your space, Your conversations
+      - generic [ref=f4e23]:
+        - button "" [ref=f4e24] [cursor=pointer]
+        - button "" [ref=f4e26] [cursor=pointer]
+        - button "Sage Sage" [ref=f4e28] [cursor=pointer]:
+          - img "Sage" [ref=f4e29]
+          - generic [ref=f4e30]: Sage
+        - generic [ref=f4e31] [cursor=pointer]: Q
+    - generic [ref=f4e32]:
+      - complementary "Conversations and friends" [ref=f4e33]:
+        - generic [ref=f4e34]:
+          - generic [ref=f4e35]: 
+          - textbox "Search chats..." [ref=f4e36]
+          - text: 
+        - tablist [ref=f4e37]:
+          - tab "Chats" [selected] [ref=f4e38] [cursor=pointer]
+          - tab "Friends" [ref=f4e39] [cursor=pointer]
+        - generic [ref=f4e40]:
+          - generic [ref=f4e41]:
+            - button " Global" [ref=f4e42] [cursor=pointer]:
+              - generic [ref=f4e43]: 
+              - generic [ref=f4e44]: Global
+            - button " Posts" [ref=f4e45] [cursor=pointer]:
+              - generic [ref=f4e46]: 
+              - generic [ref=f4e47]: Posts
+            - button " Help" [ref=f4e48] [cursor=pointer]:
+              - generic [ref=f4e49]: 
+              - generic [ref=f4e50]: Help
+          - generic [ref=f4e52]:
+            - generic [ref=f4e53]: 
+            - heading "No chats yet" [level=4] [ref=f4e54]
+            - paragraph [ref=f4e55]:
+              - text: Find friends and start chatting! Use the
+              - strong [ref=f4e56]: +
+              - text: button to add people.
+        - text: 
+      - main "Chat Area" [ref=f4e57]:
+        - region "Welcome" [ref=f4e58]:
+          - generic [ref=f4e59]:
+            - heading "Welcome to KatChat" [level=2] [ref=f4e60]
+            - paragraph [ref=f4e62]: Select a conversation or explore the global chat.
+            - generic [ref=f4e63]:
+              - button " Global Chat" [ref=f4e64] [cursor=pointer]:
+                - generic [ref=f4e65]: 
+                - text: Global Chat
+              - button " Announcements" [ref=f4e66] [cursor=pointer]:
+                - generic [ref=f4e67]: 
+                - text: Announcements
+            - generic [ref=f4e69] [cursor=pointer]:
+              - generic [ref=f4e70]: 
+              - text: Help Center & FAQ
+        - text:                      +                                    + +  +     +      
+    - navigation "Main navigation" [ref=f4e71]:
+      - button "Home" [ref=f4e72] [cursor=pointer]:
+        - generic [ref=f4e73]: 
+      - button "Global Chat" [ref=f4e75] [cursor=pointer]:
+        - generic [ref=f4e76]: 
+        - generic [ref=f4e77]: Global
+      - button "Announcements" [ref=f4e78] [cursor=pointer]:
+        - generic [ref=f4e79]: 
+        - generic [ref=f4e80]: Posts
+      - button "Settings" [ref=f4e81] [cursor=pointer]:
+        - generic [ref=f4e82]: 
+  - text:                                             
+  - status
+  - text: 

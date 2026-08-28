@@ -19,7 +19,7 @@ function initSocket(token) {
     // Also update global status if in global view
     const statusEl = document.getElementById('global-status');
     if (statusEl && statusEl.dataset.memberCount) {
-      statusEl.textContent = `${count} online · ${statusEl.dataset.memberCount} members`;
+      statusEl.innerHTML = `${count} online · <span class="online-count-badge" id="global-online-count">${count}</span>`;
     }
   });
 

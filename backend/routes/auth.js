@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const dns = require('dns');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const supabase = require('../supabase');
@@ -33,6 +34,30 @@ const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_COOLDOWN = 60 * 1000;
 
 const otpCooldowns = new Map(); // userId -> timestamp of last send
+
+// Email-domain existence check: verifies the address's domain has actual mail
+// servers (MX records) so clearly-fake domains are rejected at signup. Results
+// are cached for an hour to avoid repeated DNS lookups. Only ENOTFOUND/ENODATA
+// are treated as "domain does not exist"; transient DNS failures are allowed
+// through so real users are never blocked by a resolver hiccup.
+const mxCache = new Map(); // domain -> { ok, at }
+const MX_CACHE_TTL = 60 * 60 * 1000;
+
+async function domainHasMx(email) {
+  const domain = String(email).split('@')[1];
+  if (!domain) return false;
+  const cached = mxCache.get(domain);
+  if (cached && Date.now() - cached.at < MX_CACHE_TTL) return cached.ok;
+  let ok = false;
+  try {
+    const records = await dns.promises.resolveMx(domain);
+    ok = Array.isArray(records) && records.length > 0;
+  } catch (err) {
+    ok = !['ENOTFOUND', 'ENODATA'].includes(err.code);
+  }
+  mxCache.set(domain, { ok, at: Date.now() });
+  return ok;
+}
 
 // Generate temporary password: 12 chars, mixed case + numbers (crypto-secure)
 const generateTempPassword = () => {
@@ -103,9 +128,17 @@ router.post('/register', async (req, res) => {
 
     const emailClean = email.trim().toLowerCase();
 
+    // Reject emails on domains that have no mail servers (obviously fake/typo'd)
+    if (!(await domainHasMx(emailClean)))
+      return res.status(400).json({ error: 'This email domain does not exist. Check the spelling and try again.' });
+
     // Check existing — structured queries only (no filter injection)
-    const { data: existingEmail } = await supabase.from('users').select('id').eq('email', emailClean).maybeSingle();
-    if (existingEmail) return res.status(400).json({ error: 'Email or username already taken' });
+    const { data: existingEmail } = await supabase.from('users').select('id,email_verified').eq('email', emailClean).maybeSingle();
+    if (existingEmail) {
+      if (existingEmail.email_verified === false)
+        return res.status(400).json({ error: 'This email is already registered but not verified. Sign in to resend the verification code.' });
+      return res.status(400).json({ error: 'Email or username already taken' });
+    }
     const { data: existingUser } = await supabase.from('users').select('id').eq('username', usernameClean).maybeSingle();
     if (existingUser) return res.status(400).json({ error: 'Email or username already taken' });
 
@@ -142,7 +175,7 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
-    const { data: user, error: loginErr } = await supabase.from('users').select('*').eq('email', String(email).trim().toLowerCase()).single();
+    const { data: user, error: loginErr } = await supabase.from('users').select('*').eq('email', String(email).trim().toLowerCase()).maybeSingle();
     if (loginErr) throw loginErr;
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
     const valid = await bcrypt.compare(password, user.password);
@@ -177,7 +210,7 @@ router.post('/totp/verify-login', async (req, res) => {
     }
     if (decoded.purpose !== 'totp') return res.status(401).json({ error: 'Invalid 2FA session' });
 
-    const { data: user, error: verifyUserErr } = await supabase.from('users').select('*').eq('id', decoded.userId).single();
+    const { data: user, error: verifyUserErr } = await supabase.from('users').select('*').eq('id', decoded.userId).maybeSingle();
     if (verifyUserErr) throw verifyUserErr;
     if (!user || !user.totp_enabled) return res.status(401).json({ error: 'Invalid user' });
 
@@ -386,7 +419,7 @@ router.post('/admin/reset-password', auth, ownerOnly, async (req, res) => {
     if (!userId || typeof userId !== 'string') return res.status(400).json({ error: 'User ID required' });
 
     // Check user exists and is not owner
-    const { data: target } = await supabase.from('users').select('role').eq('id', userId).single();
+    const { data: target } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
     if (!target) return res.status(404).json({ error: 'User not found' });
     if (target.role === 'owner') return res.status(403).json({ error: 'Cannot reset owner password' });
 

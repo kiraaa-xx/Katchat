@@ -52,6 +52,8 @@ katchat/
 │   │   ├── ai.js                # POST /api/ai/chat, history, multi-chat management
 │   │   ├── help.js              # GET/PUT /api/help (editable help center, owner-only write)
 │   │   └── owner-messages.js    # Owner contact messaging system
+│   ├── services/
+│   │   └── tools.js             # Sage live tools: weather (Open-Meteo), news (Google News RSS), announcements — keyless, TTL-cached
 │   ├── socket/
 │   │   └── index.js             # Socket.IO: messages, typing, bans, heartbeats, online count
 │   ├── logs/                    # Daily error files: errors-YYYY-MM-DD.log
@@ -180,9 +182,12 @@ Socket.IO handles real-time events: messages, typing indicators, online status, 
 - Powered by **Groq** (`llama-3.3-70b-versatile`)
 - Adaptive personality: gender-aware tone, serious-topic detection, no unwanted swearing
 - Image analysis via vision model (`meta-llama/llama-4-scout-17b-16e-instruct`)
-- Multi-chat history (up to 10 chats, 20 messages each)
+- Multi-chat history (up to 10 chats, 20 messages each; chats older than 60 days auto-dropped)
+- Daily request limit (`SAGE_DAILY_LIMIT`, default 5): failed/busy/invalid requests are refunded and don't count toward the quota
+- Base64 image data URLs are stripped before `sage_history` is saved (JSONB stays small; images render in-session only)
 - Context window: last 10 messages sent to provider
 - Temperature: 0.7, max 1024 tokens
+- **Live tools** (`backend/services/tools.js`): Sage fetches weather (Open-Meteo), news (Google News RSS + Hacker News fallback), and KatChat announcements **only when asked** — compact structured context, never raw JSON. All calls are keyless & server-side.
 - See **AI_BEHAVIOR.md** for full personality and provider details
 
 ### 4. Friends System
@@ -315,6 +320,9 @@ Reduced nickname frequency (1–2 per convo), serious-topic detection, swearing 
 
 ### Phase 2d — Architecture & Code Quality
 Deduplicated multer filter into `utils.js`, removed duplicate avatar builder, removed dead code, replaced silent `catch(() => {})` with `console.warn`.
+
+### Phase 3 — Storage, Limits & Stability QA
+Sage daily-limit slots now reserve-then-refund (failed/busy/invalid requests don't consume quota; stale date keys pruned from memory). Base64 image data URLs stripped from `sage_history` on save (existing stale blobs cleaned from DB). Global chat container no longer centers on large screens — messages align flush left. Verified bounded chat retention, storage sizes, auth guards, rate limiters, and secrets handling with browser/MCP QA.
 
 ---
 

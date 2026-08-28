@@ -132,7 +132,7 @@ router.post('/:id/comments', auth, async (req, res) => {
 router.delete('/:annId/comments/:commentId', auth, async (req, res) => {
   try {
     if (!isUuid(req.params.annId) || !isUuid(req.params.commentId)) return res.status(400).json({ error: 'Invalid ID' });
-    const { data: comment } = await supabase.from('announcement_comments').select('author_id').eq('id', req.params.commentId).single();
+    const { data: comment } = await supabase.from('announcement_comments').select('author_id').eq('id', req.params.commentId).maybeSingle();
     if (!comment) return res.status(404).json({ error: 'Comment not found' });
     const { data: role } = await supabase.from('roles').select('permissions').eq('name', req.user.role).single();
     const canDelete = comment.author_id === req.user.id || role?.permissions?.canDeleteMessages || ['admin', 'owner'].includes(req.user.role);

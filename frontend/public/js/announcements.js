@@ -51,8 +51,13 @@ function makeAnnCard(ann) {
     const preview = truncateWords(ann.content, 30);
     contentHtml = `
       <div class="ann-card-body">
-        ${ann.pinned ? '<div class="ann-pin-badge"><i class="fa fa-thumbtack"></i> Pinned</div>' : ''}
-        <h2 class="ann-card-title">${esc(ann.title)}</h2>
+        <div class="ann-mob-head">
+          <div class="ann-mob-head-text">
+            ${ann.pinned ? '<div class="ann-pin-badge"><i class="fa fa-thumbtack"></i> Pinned</div>' : ''}
+            <h2 class="ann-card-title">${esc(ann.title)}</h2>
+          </div>
+          ${ann.image ? `<img src="${ann.image}" class="ann-mob-img" alt="Announcement image" loading="lazy" onclick="openAnnImageViewer(${onclickStr(ann.image)})" onerror="this.remove()">` : ''}
+        </div>
         <div class="ann-card-content-preview">
           ${esc(preview.text)}${preview.truncated ? '<span class="ann-read-more" onclick="openAnnDetail(\'' + ann.id + '\', event)">... Read more</span>' : ''}
         </div>

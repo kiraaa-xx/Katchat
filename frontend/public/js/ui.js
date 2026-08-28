@@ -555,6 +555,9 @@ function skeletonAnnouncements(n = 3) {
           <div class="skel skel-line" style="width:100px;height:10px"></div>
         </div>
       </div>
+      <div class="ann-card-img-wrap">
+        <div class="skel" style="position:absolute;inset:0;border-radius:0"></div>
+      </div>
     </div>`).join('');
 }
 

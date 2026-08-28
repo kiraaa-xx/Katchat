@@ -1,0 +1,92 @@
+- generic [ref=f3e1]:
+  - link "Skip to main content" [ref=f3e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - text: "      @                  #  "
+  - application "KatChat Application" [ref=f3e16]:
+    - banner [ref=f3e17]:
+      - generic [ref=f3e18]:
+        - img "KatChat logo" [ref=f3e19]
+        - generic [ref=f3e20]:
+          - generic [ref=f3e21]: KatChat
+          - generic [ref=f3e22]: Your space, Your conversations
+      - generic [ref=f3e23]:
+        - button "" [ref=f3e24] [cursor=pointer]
+        - button "" [ref=f3e26] [cursor=pointer]
+        - button "Sage Sage" [ref=f3e209] [cursor=pointer]:
+          - img "Sage" [ref=f3e29]
+          - generic [ref=f3e30]: Sage
+        - generic [ref=f3e31] [cursor=pointer]
+    - generic [ref=f3e32]:
+      - complementary "Conversations and friends" [ref=f3e33]:
+        - generic [ref=f3e34]:
+          - generic [ref=f3e35]: 
+          - textbox "Search chats..." [ref=f3e36]
+          - text: 
+        - tablist [ref=f3e37]:
+          - tab "Chats" [selected] [ref=f3e38] [cursor=pointer]
+          - tab "Friends" [ref=f3e39] [cursor=pointer]
+        - generic [ref=f3e40]:
+          - generic [ref=f3e41]:
+            - button " Global" [ref=f3e42] [cursor=pointer]:
+              - generic [ref=f3e43]: 
+              - generic [ref=f3e44]: Global
+            - button " Posts" [ref=f3e45] [cursor=pointer]:
+              - generic [ref=f3e46]: 
+              - generic [ref=f3e47]: Posts
+            - button " Help" [ref=f3e48] [cursor=pointer]:
+              - generic [ref=f3e49]: 
+              - generic [ref=f3e50]: Help
+          - generic [ref=f3e52]:
+            - generic [ref=f3e53]: 
+            - heading "No chats yet" [level=4] [ref=f3e54]
+            - paragraph [ref=f3e55]:
+              - text: Find friends and start chatting! Use the
+              - strong [ref=f3e56]: +
+              - text: button to add people.
+        - text: 
+      - main "Chat Area" [ref=f3e57]:
+        - region "Welcome" [ref=f3e58]:
+          - generic [ref=f3e59]:
+            - heading "Welcome to KatChat" [level=2] [ref=f3e60]
+            - paragraph [ref=f3e62]: Select a conversation or explore the global chat.
+            - generic [ref=f3e63]:
+              - button " Global Chat" [ref=f3e64] [cursor=pointer]:
+                - generic [ref=f3e65]: 
+                - text: Global Chat
+              - button " Announcements" [ref=f3e66] [cursor=pointer]:
+                - generic [ref=f3e67]: 
+                - text: Announcements
+            - generic [ref=f3e69] [cursor=pointer]:
+              - generic [ref=f3e70]: 
+              - generic [ref=f3e71]: Asmin Raj Awasthi Passed
+              - generic [ref=f3e72]: Aug 16
+            - generic [ref=f3e73]:
+              - generic [ref=f3e74]:
+                - generic [ref=f3e75]:
+                  - generic [ref=f3e76]: 
+                  - text: Today's Cat
+                - button "Get a new cat" [active] [ref=f3e77] [cursor=pointer]:
+                  - generic [ref=f3e78]: 
+              - generic [ref=f3e79]:
+                - img "Cat of the day" [ref=f3e81]
+                - generic [ref=f3e82]:
+                  - generic [ref=f3e83]: Did you know?
+                  - paragraph [ref=f3e84]: Cats are subject to gum disease and to dental caries. They should have their teeth cleaned by the vet or the cat dentist once a year.
+            - generic [ref=f3e86] [cursor=pointer]:
+              - generic [ref=f3e87]: 
+              - text: Help Center & FAQ
+        - text:                             +                                    + +  +         +         
+    - navigation "Main navigation" [ref=f3e88]:
+      - button "Home" [ref=f3e89] [cursor=pointer]:
+        - generic [ref=f3e90]: 
+      - button "Global Chat" [ref=f3e92] [cursor=pointer]:
+        - generic [ref=f3e93]: 
+        - generic [ref=f3e94]: Global
+      - button "Announcements" [ref=f3e95] [cursor=pointer]:
+        - generic [ref=f3e96]: 
+        - generic [ref=f3e97]: Posts
+      - button "Settings" [ref=f3e98] [cursor=pointer]:
+        - generic [ref=f3e99]: 
+  - text:                                             
+  - status
+  - text: 

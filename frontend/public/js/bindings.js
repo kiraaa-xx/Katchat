@@ -208,7 +208,7 @@ if (window.__katchat_bindings_loaded__) {
       
       // Sage
       'v-sage', 'sage-side-panel', 'sage-msgs', 'sage-input', 'sage-img-preview',
-      'sage-img-input', 'sage-welcome', 'sage-chat-list',
+      'sage-img-input', 'sage-chat-list',
       
       // Admin
       'admin-users-list', 'admin-roles-list', 'admin-bans-list',

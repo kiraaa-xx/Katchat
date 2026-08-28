@@ -287,7 +287,7 @@ router.put('/ban/:userId', auth, adminOnly, async (req, res) => {
     if (!isUuid(req.params.userId)) return res.status(400).json({ error: 'Invalid user ID' });
     const perms = await getUserPermissions(req.user.id);
     if (!canBan(perms, req.user.role)) return res.status(403).json({ error: 'You do not have permission to ban users' });
-    const { data: target } = await supabase.from('users').select('role').eq('id', req.params.userId).single();
+    const { data: target } = await supabase.from('users').select('role').eq('id', req.params.userId).maybeSingle();
     if (!target) return res.status(404).json({ error: 'User not found' });
     if (['admin','owner'].includes(target.role) && req.user.role !== 'owner') return res.status(403).json({ error: 'Cannot ban admin or owner' });
     // Permanent ban must clear any temp ban so auto-unban never fires for it

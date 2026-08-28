@@ -35,6 +35,7 @@ async function loadSageChats() {
     sageChats = []; 
   }
 }
+window.loadSageChats = loadSageChats;
 
 function renderSageChatList() {
   const list = document.getElementById('sage-chat-list');
@@ -63,6 +64,7 @@ function renderSageChatList() {
       </div>
     </div>`).join('');
 }
+window.renderSageChatList = renderSageChatList;
 
 function loadSageChat(chat) {
   if (typeof chat === 'string') {
@@ -449,11 +451,14 @@ async function sendSage() {
     // friendly maintenance message rather than a raw error. The backend
     // already returns this message in the normal success path when both
     // providers fail, so this only covers transport-level failures.
+    // 429s are user-visible (daily limit / busy) — show the real message.
     console.error('Error sending message to Sage:', err);
     document.getElementById('sage-thinking')?.remove();
     const errorMsg = {
       role: 'assistant',
-      content: '⚠️ Sage is currently under maintenance. Please try again in a few minutes.'
+      content: err.status === 429
+        ? (err.message || 'Sage is busy right now. Please wait a moment and try again.')
+        : '⚠️ Sage is currently under maintenance. Please try again in a few minutes.'
     };
     sageMessages.push(errorMsg);
     container.appendChild(makeSageMsgEl(errorMsg, sageMessages.length - 1));

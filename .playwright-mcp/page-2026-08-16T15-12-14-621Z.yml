@@ -1,0 +1,12 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - status "KatChat loading" [ref=e3]:
+    - generic [ref=e5]:
+      - img "KatChat" [ref=e10]
+      - generic [ref=e11]:
+        - generic [ref=e12]: KatChat
+        - generic [ref=e13]: Where conversations come alive
+  - text: "      @                  #                                    +                                    + +  +     +                                                       "
+  - status
+  - text: 

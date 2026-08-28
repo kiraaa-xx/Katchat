@@ -1,0 +1,105 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - text: "      @                  #  "
+  - application "KatChat Application" [ref=e16]:
+    - banner [ref=e17]:
+      - generic [ref=e18]:
+        - img "KatChat logo" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e21]: KatChat
+          - generic [ref=e22]: Your space, Your conversations
+      - generic [ref=e23]:
+        - button "" [ref=e24] [cursor=pointer]
+        - button "" [ref=e26] [cursor=pointer]
+        - button "Sage Sage" [ref=e28] [cursor=pointer]:
+          - img "Sage" [ref=e29]
+          - generic [ref=e30]: Sage
+        - generic [ref=e31] [cursor=pointer]
+    - generic [ref=e32]:
+      - complementary "Conversations and friends" [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]: 
+          - textbox "Search chats..." [ref=e36]
+          - text: 
+        - tablist [ref=e37]:
+          - tab "Chats" [selected] [ref=e38] [cursor=pointer]
+          - tab "Friends" [ref=e39] [cursor=pointer]
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - button " Global" [active] [ref=e42] [cursor=pointer]:
+              - generic [ref=e43]: 
+              - generic [ref=e44]: Global
+            - button " Posts" [ref=e45] [cursor=pointer]:
+              - generic [ref=e46]: 
+              - generic [ref=e47]: Posts
+            - button " Help" [ref=e48] [cursor=pointer]:
+              - generic [ref=e49]: 
+              - generic [ref=e50]: Help
+          - generic [ref=e52]:
+            - generic [ref=e53]: 
+            - heading "No chats yet" [level=4] [ref=e54]
+            - paragraph [ref=e55]:
+              - text: Find friends and start chatting! Use the
+              - strong [ref=e56]: +
+              - text: button to add people.
+        - text: 
+      - main "Chat Area" [ref=e57]:
+        - text:                 
+        - region "Global chat" [ref=e90]:
+          - generic [ref=e91]:
+            - text: 
+            - generic [ref=e92]: 
+            - generic [ref=e94]:
+              - generic [ref=e95]: Global Chat
+              - generic [ref=e96]: 2 online · 10 members
+          - generic [ref=e97]:
+            - generic [ref=e98]: Aug 15
+            - generic [ref=e99]:
+              - generic [ref=e100]: A
+              - generic [ref=e101]:
+                - generic [ref=e102]:
+                  - text: asmin
+                  - generic [ref=e103]:
+                    - generic [ref=e104]: 
+                    - text: admin
+                - generic [ref=e105]: hi
+                - generic [ref=e106]:
+                  - generic [ref=e107]: 12:01 AM
+                  - text:  
+            - generic [ref=e108]: Yesterday
+            - generic [ref=e109]:
+              - img "Kris" [ref=e111]
+              - generic [ref=e112]:
+                - generic [ref=e113]:
+                  - generic [ref=e114]: 
+                  - text: Kris
+                  - generic [ref=e115]:
+                    - generic [ref=e116]: 
+                    - text: owner
+                - generic [ref=e117]: hi
+                - generic [ref=e118]:
+                  - generic [ref=e119]: 02:53 PM
+                  - text:  
+          - text:  
+          - generic [ref=e121]:
+            - textbox "Global chat input" [ref=e123]:
+              - /placeholder: Message everyone... (@mention)
+            - button "Send to global chat" [ref=e124] [cursor=pointer]:
+              - generic [ref=e125]: 
+          - text: 
+        - text:   +                                    + +  +     +      
+    - navigation "Main navigation" [ref=e77]:
+      - button "Home" [ref=e78] [cursor=pointer]:
+        - generic [ref=e79]: 
+      - button "Global Chat" [ref=e81] [cursor=pointer]:
+        - generic [ref=e82]: 
+        - generic [ref=e83]: Global
+      - button "Announcements" [ref=e84] [cursor=pointer]:
+        - generic [ref=e85]: 
+        - generic [ref=e86]: Posts
+      - button "Settings" [ref=e87] [cursor=pointer]:
+        - generic [ref=e88]: 
+  - text:                                             
+  - status
+  - text: 
